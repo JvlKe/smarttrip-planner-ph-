@@ -1,0 +1,235 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum TripStatus {
+  DRAFT
+  PLANNING
+  UPCOMING
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  ARCHIVED
+}
+
+enum PlanningMode {
+  AI
+  MANUAL
+}
+
+enum TravelStyle {
+  BUDGET
+  MID_RANGE
+  PREMIUM
+}
+
+enum TransportMode {
+  PUBLIC_TRANSPORT
+  PRIVATE_VEHICLE
+}
+
+model Profile {
+  id         String     @id @db.Uuid
+  fullName   String
+  phone      String?
+  location   String?
+  bio        String?
+  avatarData String?    @db.Text
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+  trips      Trip[]
+  favorites  Favorite[]
+}
+
+model Destination {
+  id             Int        @id @default(autoincrement())
+  slug           String     @unique
+  name           String
+  region         String
+  province       String?
+  description    String
+  latitude       Float
+  longitude      Float
+  imageUrl       String?
+  bestMonths     String[]
+  interests      String[]
+  suggestedDays  Int
+  dailyBudgetMin Int
+  dailyBudgetMax Int
+  featured       Boolean    @default(true)
+  trips          Trip[]
+  favorites      Favorite[]
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+}
+
+model Trip {
+  id             String          @id @default(uuid()) @db.Uuid
+  userId         String          @db.Uuid
+  destinationId  Int?
+  name           String
+  customLocation String?
+  startDate      DateTime        @db.Date
+  endDate        DateTime        @db.Date
+  travelers      Int             @default(1)
+  totalBudget    Decimal         @db.Decimal(12, 2)
+  travelStyle    TravelStyle
+  planningMode   PlanningMode
+  transportMode  TransportMode   @default(PUBLIC_TRANSPORT)
+  status         TripStatus      @default(DRAFT)
+  interests      String[]
+  desiredPlaces  String?         @db.Text
+  notes          String?
+  baseName       String?
+  baseAddress    String?
+  baseCheckIn    String?
+  baseCheckOut   String?
+  coverPath      String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  profile        Profile         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  destination    Destination?    @relation(fields: [destinationId], references: [id])
+  days           ItineraryDay[]
+  budget         BudgetEstimate?
+  checklist      ChecklistItem[]
+  shareLink      ShareLink?
+  alternatives   SuggestedActivity[]
+
+  @@index([userId])
+  @@index([userId, status])
+  @@index([userId, updatedAt])
+  @@index([destinationId])
+}
+
+model Favorite {
+  id            String      @id @default(uuid()) @db.Uuid
+  userId        String      @db.Uuid
+  destinationId Int
+  profile       Profile     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  destination   Destination @relation(fields: [destinationId], references: [id], onDelete: Cascade)
+  createdAt     DateTime    @default(now())
+
+  @@unique([userId, destinationId])
+  @@index([userId])
+}
+
+model ChecklistItem {
+  id        String   @id @default(uuid()) @db.Uuid
+  tripId    String   @db.Uuid
+  label     String
+  category  String   @default("General")
+  completed Boolean  @default(false)
+  position  Int      @default(0)
+  trip      Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@index([tripId, position])
+}
+
+model ShareLink {
+  token     String   @id @default(uuid()) @db.Uuid
+  tripId    String   @unique @db.Uuid
+  active    Boolean  @default(true)
+  trip      Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ItineraryDay {
+  id         String     @id @default(uuid()) @db.Uuid
+  tripId     String     @db.Uuid
+  dayNumber  Int
+  date       DateTime   @db.Date
+  title      String
+  notes      String?
+  position   Int
+  trip       Trip       @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  activities Activity[]
+
+  @@unique([tripId, dayNumber])
+  @@index([tripId, position])
+}
+
+model SuggestedActivity {
+  id            String       @id @default(uuid()) @db.Uuid
+  tripId        String       @db.Uuid
+  title         String
+  description   String?
+  category      String
+  startTime     String?
+  durationMin   Int?
+  location      String?
+  latitude      Float?
+  longitude     Float?
+  estimatedCost Decimal      @default(0) @db.Decimal(12, 2)
+  notes         String?
+  position      Int
+  trip          Trip         @relation(fields: [tripId], references: [id], onDelete: Cascade)
+
+  @@index([tripId, position])
+}
+
+model Activity {
+  id              String           @id @default(uuid()) @db.Uuid
+  dayId           String           @db.Uuid
+  title           String
+  description     String?
+  category        String
+  startTime       String?
+  durationMin     Int?
+  location        String?
+  latitude        Float?
+  longitude       Float?
+  estimatedCost   Decimal          @default(0) @db.Decimal(12, 2)
+  notes           String?
+  referenceNumber String?
+  website         String?
+  phone           String?
+  position        Int
+  status          ActivityStatus   @default(PLANNED)
+  priority        ActivityPriority @default(FLEXIBLE)
+  day             ItineraryDay     @relation(fields: [dayId], references: [id], onDelete: Cascade)
+
+  @@index([dayId, position])
+}
+
+enum ActivityStatus {
+  PLANNED
+  VISITED
+  SKIPPED
+}
+
+enum ActivityPriority {
+  MUST_VISIT
+  OPTIONAL
+  FLEXIBLE
+}
+
+model BudgetEstimate {
+  id            String  @id @default(uuid()) @db.Uuid
+  tripId        String  @unique @db.Uuid
+  transport     Decimal @db.Decimal(12, 2)
+  accommodation Decimal @db.Decimal(12, 2)
+  food          Decimal @db.Decimal(12, 2)
+  activities    Decimal @db.Decimal(12, 2)
+  emergency     Decimal @db.Decimal(12, 2)
+  trip          Trip    @relation(fields: [tripId], references: [id], onDelete: Cascade)
+}
+
+model AtlasAnswer {
+  id                 String   @id @default(uuid()) @db.Uuid
+  fingerprint        String   @unique
+  normalizedQuestion String
+  answer             String   @db.Text
+  hits               Int      @default(0)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@index([updatedAt])
+}

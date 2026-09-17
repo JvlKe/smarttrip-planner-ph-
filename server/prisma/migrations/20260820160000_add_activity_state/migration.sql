@@ -1,0 +1,6 @@
+CREATE TYPE "ActivityStatus" AS ENUM ('PLANNED', 'VISITED', 'SKIPPED');
+CREATE TYPE "ActivityPriority" AS ENUM ('MUST_VISIT', 'OPTIONAL', 'FLEXIBLE');
+
+ALTER TABLE "Activity"
+ADD COLUMN "status" "ActivityStatus" NOT NULL DEFAULT 'PLANNED',
+ADD COLUMN "priority" "ActivityPriority" NOT NULL DEFAULT 'FLEXIBLE';
