@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
-import { api } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
 import PasswordGuide from "../components/PasswordGuide";
 import PasswordInput from "../components/PasswordInput";
@@ -20,6 +19,7 @@ export default function AuthPage({ mode }) {
     confirmPassword: "",
   });
   const [error, setError] = useState(""),
+    [message, setMessage] = useState(""),
     [busy, setBusy] = useState(false);
   const [accountDeleted] = useState(() => {
     try {
@@ -43,6 +43,9 @@ export default function AuthPage({ mode }) {
   async function submit(e) {
     e.preventDefault();
     setError("");
+    setMessage("");
+    if (register && form.fullName.trim().length < 2)
+      return setError("Enter your full name (at least 2 characters).");
     if (
       register &&
       (!/[A-Za-z]/.test(form.password) || !/[0-9]/.test(form.password))
@@ -56,22 +59,23 @@ export default function AuthPage({ mode }) {
     try {
       if (register) {
         const { data, error } = await supabase.auth.signUp({
-          email: form.email,
+          email: form.email.trim(),
           password: form.password,
-          options: { data: { full_name: form.fullName } },
+          options: {
+            data: { full_name: form.fullName.trim() },
+            emailRedirectTo: `${window.location.origin}/login`,
+          },
         });
         if (error) throw error;
-        if (!data.session)
-          throw new Error(
-            "Registration succeeded, but no session was created. Check email-confirmation settings.",
+        if (!data.session) {
+          setMessage(
+            "Check your email for a confirmation link, then sign in. If an account already uses this email, try signing in or resetting your password.",
           );
-        await api("/profile", {
-          method: "PUT",
-          body: JSON.stringify({ fullName: form.fullName }),
-        });
+          return;
+        }
       } else {
         const { error } = await supabase.auth.signInWithPassword({
-          email: form.email,
+          email: form.email.trim(),
           password: form.password,
         });
         if (error) throw error;
@@ -178,7 +182,7 @@ export default function AuthPage({ mode }) {
             required
             autoComplete={register ? "new-password" : "current-password"}
           />
-          {register && <PasswordGuide password={form.password} />}{" "}
+          {register && <PasswordGuide password={form.password} />}
           {register && (
             <PasswordInput
               label="Confirm password"
@@ -192,15 +196,17 @@ export default function AuthPage({ mode }) {
           )}
           {!register && (
             <div className="fresh-auth-options">
-              <label className="fresh-remember">
-                <input type="checkbox" defaultChecked /> Keep me signed in
-              </label>
               <Link className="forgot-link" to="/forgot-password">
                 Forgot password?
               </Link>
             </div>
           )}
           {error && <div className="form-error">{error}</div>}
+          {message && (
+            <div className="fresh-auth-status" role="status">
+              {message}
+            </div>
+          )}
           <button
             className="fresh-button fresh-button-orange fresh-auth-submit"
             disabled={busy}

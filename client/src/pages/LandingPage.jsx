@@ -12,9 +12,9 @@ const features = [
   },
   {
     icon: "pin",
-    title: "Interactive travel map",
+    title: "Discover your next destination",
     description:
-      "See routes, attractions, and saved stops together on an OpenStreetMap view.",
+      "Explore Philippine destinations and find inspiration for your next adventure.",
   },
   {
     icon: "trips",

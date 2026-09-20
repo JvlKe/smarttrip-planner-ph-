@@ -9,13 +9,13 @@ import {
 import { useAuth } from "./context/AuthContext";
 import AuthPage from "./pages/AuthPage";
 import { ForgotPassword, ResetPassword } from "./pages/PasswordRecovery";
-import AtlasBoundary from "./components/AtlasBoundary";
 import AppBoundary from "./components/AppBoundary";
 import { api, reportClientError } from "./lib/api";
 import ErrorPage from "./pages/ErrorPage";
 import Icon from "./components/Icon";
 import { profileDisplayName } from "./lib/profileName";
 import LandingPage from "./pages/LandingPage";
+import { MAPS_ENABLED } from "./lib/releaseScope";
 
 const dashboardImport = () => import("./pages/Dashboard");
 const tripsImport = () => import("./pages/TripsPage");
@@ -31,6 +31,7 @@ const SharedTrip = lazy(() => import("./pages/SharedTrip"));
 const DestinationsPage = lazy(() => import("./pages/DestinationsPage"));
 const AnalyticsPage = lazy(() => import("./pages/AnalyticsPage"));
 const MapPage = lazy(() => import("./pages/MapPage"));
+const MapPreview = lazy(() => import("./pages/MapPreview"));
 
 const Logo = () => (
   <span className="brand brand-logo">
@@ -84,10 +85,6 @@ function PageEffects() {
     };
   }, []);
   return null;
-}
-function RoutedAtlas() {
-  const location = useLocation();
-  return location.pathname.startsWith("/app") ? <AtlasBoundary /> : null;
 }
 function DepartureNotifier() {
   useEffect(() => {
@@ -253,7 +250,7 @@ function Shell() {
             <Route path="settings" element={<SettingsPage />} />
             <Route path="destinations" element={<DestinationsPage />} />
             <Route path="analytics" element={<AnalyticsPage />} />
-            <Route path="map" element={<MapPage />} />
+            <Route path="map" element={MAPS_ENABLED ? <MapPage /> : <MapPreview />} />
             <Route path="*" element={<ErrorPage />} />
           </Routes>
         </Suspense>
@@ -311,7 +308,6 @@ export default function App() {
         />
         <Route path="*" element={<ErrorPage />} />
       </Routes>
-      <RoutedAtlas />
     </AppBoundary>
   );
 }

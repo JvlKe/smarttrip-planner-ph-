@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
+import { profileSchema } from "../lib/profileSchema.js";
 import { requireAuth } from "../middleware/auth.js";
 import { createClient } from "@supabase/supabase-js";
 import { rateLimit } from "../middleware/rateLimit.js";
@@ -10,25 +11,6 @@ import {
 } from "../lib/accountDeletion.js";
 
 const router = Router();
-const profileSchema = z.object({
-  fullName: z.string().trim().min(2).max(80),
-  phone: z.string().trim().max(30).optional().nullable(),
-  location: z
-    .string()
-    .trim()
-    .min(2, "Enter your trip starting point.")
-    .max(160),
-  bio: z.string().trim().max(400).optional().nullable(),
-  avatarData: z
-    .string()
-    .max(750000)
-    .refine(
-      (v) => !v || /^data:image\/(webp|jpeg|png);base64,/.test(v),
-      "Invalid profile image.",
-    )
-    .optional()
-    .nullable(),
-});
 router.use(requireAuth);
 router.delete(
   "/",

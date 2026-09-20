@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
+import { MAPS_ENABLED } from "../lib/releaseScope";
+import StaticTravelMap from "../components/StaticTravelMap";
 import {
   MapContainer,
   Marker,
@@ -703,7 +705,7 @@ export default function TripDetail() {
               ✎ Edit trip
             </Link>
             <Link className="btn outline" to={`/app/map?trip=${id}`}>
-              ⌖ Full map
+              ⌖ Travel map
             </Link>
             <ItineraryPosterButton trip={trip} />
             <TripExportMenu trip={trip} />
@@ -1288,7 +1290,7 @@ export default function TripDetail() {
                             </p>
                           )}
                           <div className="map-links">
-                            <button
+                            {MAPS_ENABLED && <button
                               type="button"
                               onClick={(event) => {
                                 event.stopPropagation();
@@ -1304,8 +1306,8 @@ export default function TripDetail() {
                                 ? "Directions"
                                 : "Directions from starting point"}{" "}
                               ↗
-                            </button>
-                            {a.latitude != null && a.longitude != null && (
+                            </button>}
+                            {MAPS_ENABLED && a.latitude != null && a.longitude != null && (
                               <a
                                 className="street-link"
                                 href={`https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${a.latitude},${a.longitude}`}
@@ -1408,7 +1410,7 @@ export default function TripDetail() {
                 </button>
               </div>
             </section>
-            <button
+            {MAPS_ENABLED && <><button
               className="btn outline map-fit-button"
               onClick={() => setFitVersion((v) => v + 1)}
             >
@@ -1482,7 +1484,8 @@ export default function TripDetail() {
                   ))}
                 </MapContainer>
               </div>
-            </SectionBoundary>
+            </SectionBoundary></>}
+            {!MAPS_ENABLED && <section className="trip-static-map"><h3>Travel map</h3><StaticTravelMap /></section>}
             <section className="trip-base-card">
               <div className="budget-title">
                 <h3>⌂ Trip Base</h3>

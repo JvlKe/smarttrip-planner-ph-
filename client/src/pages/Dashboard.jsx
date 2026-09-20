@@ -62,6 +62,16 @@ export default function Dashboard() {
         })}
       />
       <div className="dash tactile-dashboard">
+        <section className="journey-welcome">
+          <div>
+            <span className="eyebrow">YOUR PHILIPPINE ADVENTURE</span>
+            <h2>A little planning.<br />A world of possibilities.</h2>
+            <p>From your first stop to your last sunset, keep your journey together.</p>
+            <Link className="btn primary" to="/app/create">Plan your next trip <Icon name="arrow" size={18} /></Link>
+          </div>
+          <img src="/assets/palawan-hero.webp" alt="Turquoise water and limestone cliffs in Palawan" />
+          <span className="journey-caption"><Icon name="pin" size={14} /> Palawan, Philippines</span>
+        </section>
         <div className="stats dashboard-stats" aria-busy={loading}>
           {[
             ["plane", stats.total, "Total trips"],
@@ -194,8 +204,7 @@ export default function Dashboard() {
                   ))}
                 </div>
                 <p className="planner-ready">
-                  <Icon name="spark" size={15} /> AI planner ready · Gemini
-                  &amp; Groq
+                  <Icon name="spark" size={15} /> Your destinations, days, and budget — together.
                 </p>
               </section>
             </div>

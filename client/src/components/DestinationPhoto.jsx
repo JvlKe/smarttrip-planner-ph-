@@ -25,6 +25,21 @@ const articleBySlug = {
 };
 
 const memory = new Map();
+const localPhotos = {
+  "davao-samal": "/assets/samal-pearl-farm.jpg",
+  baguio: "/assets/baguio-burnham-park-small.jpg",
+  cebu: "/assets/cebu-magellans-cross.jpg",
+  "el-nido": "/assets/palawan-hero.webp",
+  boracay: "/assets/boracay-white-beach.jpg",
+  batanes: "/assets/batanes-rolling-hills.jpg",
+  siargao: "/assets/siargao-island.jpg",
+};
+const localDescriptions = {
+  "davao-samal": "Island coastline at Pearl Farm, Samal Island, Davao",
+  baguio: "Swan boats on Burnham Park Lake in Baguio",
+  cebu: "Magellan's Cross beneath the painted pavilion ceiling in Cebu",
+};
+const isScenicPhoto = (url) => !/(?:logo|seal[_%\s-]|flag[_%\s-]|coat[_%\s-]|\.svg)/i.test(url);
 
 function destinationArticle(trip) {
   return (
@@ -37,21 +52,21 @@ function destinationArticle(trip) {
 
 async function resolvePhoto(article) {
   if (memory.has(article)) return memory.get(article);
-  const key = `smarttrip-photo:${article}`;
+  const key = `smarttrip-photo:v2:${article}`;
   let saved = "";
   try {
     saved = localStorage.getItem(key) || "";
   } catch {
     // Private browsing can disable storage; the in-memory cache still works.
   }
-  if (saved) {
+  if (saved && isScenicPhoto(saved)) {
     memory.set(article, saved);
     return saved;
   }
   const request = api(
     `/destinations/photo?title=${encodeURIComponent(article)}`,
   )
-    .then((result) => result?.photoUrl || "")
+    .then((result) => isScenicPhoto(result?.photoUrl || "") ? result?.photoUrl || "" : "")
     .then((url) => {
       if (url)
         try {
@@ -76,7 +91,8 @@ export default function DestinationPhoto({
   eager = false,
 }) {
   const article = destinationArticle(trip);
-  const fixedPhoto = trip?.destination?.imageUrl || "";
+  const suppliedPhoto = trip?.destination?.imageUrl || "";
+  const fixedPhoto = localPhotos[trip?.destination?.slug] || (isScenicPhoto(suppliedPhoto) ? suppliedPhoto : "");
   const [src, setSrc] = useState(fixedPhoto);
   const [triedResolvedPhoto, setTriedResolvedPhoto] = useState(!fixedPhoto);
 
@@ -97,12 +113,13 @@ export default function DestinationPhoto({
     };
   }, [article, fixedPhoto]);
 
-  if (!src) return null;
+  if (!src) return <span className="destination-photo-fallback" role="img" aria-label={`Photo unavailable for ${trip?.destination?.name || trip?.customLocation || "this destination"}`}><span aria-hidden="true">◇</span><small>{trip?.destination?.name || trip?.customLocation || "Explore the Philippines"}</small></span>;
   return (
     <img
       className={className}
       src={src}
-      alt={`${trip?.destination?.name || trip?.customLocation || "Philippine destination"} landmark`}
+      alt={localDescriptions[trip?.destination?.slug] || `${trip?.destination?.name || trip?.customLocation || "Philippine destination"} landmark`}
+      style={trip?.destination?.slug === "cebu" ? { objectPosition: "center 42%" } : undefined}
       loading={eager ? "eager" : "lazy"}
       referrerPolicy="no-referrer"
       onError={() => {

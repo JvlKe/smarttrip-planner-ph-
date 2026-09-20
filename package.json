@@ -12,7 +12,8 @@
     "db:generate": "npm run db:generate -w server",
     "db:deploy": "npm run db:deploy -w server",
     "db:migrate": "npm run db:migrate -w server",
-    "db:seed": "npm run db:seed -w server"
+    "db:seed": "npm run db:seed -w server",
+    "check:connection": "npm run check:connection -w server"
   },
   "devDependencies": {
     "concurrently": "^9.2.1",

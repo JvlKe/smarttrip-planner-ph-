@@ -10,11 +10,15 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     localStorage.removeItem("smarttripGuestMode");
     if ("indexedDB" in window) indexedDB.deleteDatabase("smarttrip-guest");
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
-      setLoading(false);
-      if (data.session) warmApi();
-    });
+    supabase.auth
+      .getSession()
+      .then(({ data, error }) => {
+        if (error) throw error;
+        setSession(data.session);
+        if (data.session) warmApi();
+      })
+      .catch(() => setSession(null))
+      .finally(() => setLoading(false));
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, next) => {
@@ -33,6 +37,15 @@ export function AuthProvider({ children }) {
       };
     }
     api("/profile")
+      .then(async (value) => {
+        if (value) return value;
+        const fullName = session.user.user_metadata?.full_name?.trim();
+        if (!fullName || fullName.length < 2) return null;
+        return api("/profile", {
+          method: "PUT",
+          body: JSON.stringify({ fullName }),
+        });
+      })
       .then((value) => active && setProfile(value))
       .catch(() => active && setProfile(null));
     return () => {

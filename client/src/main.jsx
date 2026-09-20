@@ -6,6 +6,7 @@ import { AuthProvider } from "./context/AuthContext";
 import "./style.css";
 import "./tactile.css";
 import "./fresh.css";
+import "./proposal.css";
 document.documentElement.dataset.theme =
   localStorage.getItem("theme") || "light";
 
