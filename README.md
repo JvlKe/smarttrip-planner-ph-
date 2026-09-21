@@ -1,46 +1,60 @@
 # SmartTrip Planner PH
 
-## AI credit
+SmartTrip Planner PH helps travelers organize Philippine destinations, trip dates, itineraries and estimated budgets. Its React interface follows the proposal design system, with teal branding, orange actions, Nunito typography, rounded cards and light/dark themes.
 
-Developed with substantial AI assistance for code, design, troubleshooting, tests and documentation. See [AI-USAGE.md](AI-USAGE.md) for the working evidence log, corrections and authorship status. Independently authored backend contributions are not yet verified.
+## Current milestone
 
-SmartTrip Planner PH is a Philippine travel-planning website currently in its frontend design stage. Its interface follows the proposal-stage wireframes and design system.
+Week 1 design and connected foundation, due September 23, 2026. This is not a finished production release.
 
-Atlas is currently hidden from the interface; integration and testing are planned for Week 2.
+- Public landing, sign-in, registration and recovery interfaces.
+- Dashboard, trips, trip creation/editing, destinations, analytics, profile and settings interfaces.
+- Responsive desktop/mobile navigation and light/dark themes.
+- Twenty curated destinations, with selected locally stored landmark photos and unavailable-photo fallbacks.
+- Supabase authentication integration and API profile creation.
+- Fixed Philippines map preview only. Interactive trip maps/directions are disabled through `client/src/lib/releaseScope.js`.
+- Atlas is not exposed in the interface. AI configuration and verification remain pending.
 
-## Current progress
+Implemented screens and API handlers are not equivalent to fully verified user flows.
 
-The current milestone includes:
+## Stack
 
-- Responsive public landing page
-- Sign-in page design
-- Registration page design
-- Light and dark modes
-- Desktop and mobile navigation
-- SmartTrip branding, rounded cards, and local travel photography
-- Destination cards for Palawan, Boracay, Batanes, and Siargao
-- Supabase sign-in and registration wiring, including email-confirmation handling (live testing pending)
-- API profile creation after a confirmed sign-in
-- Proposal-based dashboard, trip-planning, destinations, analytics, profile and settings design
+React and Vite; Node.js and Express; Prisma and PostgreSQL; Supabase authentication; Leaflet/OpenStreetMap for the map preview. AI integration code is retained but live provider functionality is not claimed complete.
 
-Maps are deferred from the Week 1 release. Navigation opens a fixed Philippines map; interactive maps and directions are disabled through `client/src/lib/releaseScope.js`; code is retained for Week 2 integration and testing.
+## Application routes
 
-The landing, sign-in, and registration pages were checked at approximately 320 px, 768 px, 1024 px, and 1440 px. No horizontal overflow, broken images, or browser console errors were found during the latest local check.
+### Public and account pages
 
-## Preview routes
+| Route | Page | Access / notes |
+| --- | --- | --- |
+| `/` | Landing | Public |
+| `/login` | Sign in | Supabase account required |
+| `/register` | Registration | Email confirmation follows project configuration |
+| `/forgot-password` | Password recovery | Requests a recovery email |
+| `/reset-password` | New password | Valid recovery session required |
+| `/share/:token` | Shared trip | Valid share token required; sharing/privacy verification pending |
 
-| Route       | Current page        |
-| ----------- | ------------------- |
-| `/`         | Landing page        |
-| `/login`    | Sign-in design      |
-| `/register` | Registration design |
+### Protected pages
 
-## Run the current frontend
+All `/app` routes require a signed-in session; unauthenticated visitors are redirected to sign in.
 
-Requirements:
+| Route | Page | Current scope |
+| --- | --- | --- |
+| `/app` | Dashboard | Trip summaries, quick actions and empty states |
+| `/app/trips` | My Trips | Listing, search and filtering interface |
+| `/app/create` | Create Trip | Destination, dates, travelers, starting point and budget |
+| `/app/trips/:id` | Trip details | Itinerary, activities, budget and trip actions |
+| `/app/trips/:id/edit` | Edit Trip | Existing-trip editing form |
+| `/app/destinations` | Destinations | Discovery cards, search and interest filters |
+| `/app/map` | Travel Map | Fixed geographic preview; no interactive trip mapping |
+| `/app/analytics` | Analytics | Trip and estimated-budget summaries |
+| `/app/profile` | Profile | Profile photo, personal details and starting point |
+| `/app/settings` | Settings | Appearance, reminders and account-deletion interface |
 
-- Node.js 20.19 or newer
-- npm
+Replace `:id` with an accessible trip ID and `:token` with a valid share token. Unknown public/application paths render the error page. Atlas has no standalone page route.
+
+## Setup and installation
+
+Requirements: Node.js 20.19+ (or a compatible newer supported release), npm, and a Supabase project with PostgreSQL access.
 
 ```bash
 git clone https://github.com/JvlKe/smarttrip-planner-ph-.git
@@ -48,61 +62,146 @@ cd smarttrip-planner-ph-
 npm ci
 ```
 
-Copy `client/.env.example` to `client/.env`. For design-only local viewing, use non-secret placeholder values. Real authentication requires valid Supabase project values.
+Copy `client/.env.example` to `client/.env`, and `server/.env.example` to `server/.env`. On Windows PowerShell:
 
-```env
-VITE_SUPABASE_URL=https://your-project.supabase.co
-VITE_SUPABASE_PUBLISHABLE_KEY=your_publishable_key
-VITE_API_URL=http://localhost:4000/api
+```powershell
+Copy-Item client/.env.example client/.env
+Copy-Item server/.env.example server/.env
 ```
 
-Start the frontend:
+Do not overwrite already configured files. Replace example values locally; never commit real credentials.
 
-```bash
-npm run dev -w client
-```
+### Client configuration
 
-Open [http://localhost:5173](http://localhost:5173).
+| Variable | Example / purpose |
+| --- | --- |
+| `VITE_SUPABASE_URL` | `https://your-project.supabase.co` |
+| `VITE_SUPABASE_PUBLISHABLE_KEY` | Your project's public publishable key |
+| `VITE_API_URL` | `http://localhost:4000/api` |
 
-For live authentication and profile data, also copy `server/.env.example` to `server/.env` and fill in the same Supabase project URL and publishable key, plus the project's PostgreSQL connection strings. Keep `.env` files local; they are ignored by Git. In the Supabase Auth URL settings, allow `http://localhost:5173/login` as a redirect URL for email confirmation. Then run:
+Only public configuration belongs in Vite variables. Never place database passwords, Supabase secret/service keys or AI keys in the client.
+
+### Server configuration
+
+| Variable | Example / purpose |
+| --- | --- |
+| `PORT` | `4000` |
+| `CLIENT_URL` | `http://localhost:5173`; allowed browser origin |
+| `SUPABASE_URL` | Same project URL as the client |
+| `SUPABASE_PUBLISHABLE_KEY` | Same public key as the client |
+| `DATABASE_URL` | PostgreSQL application connection; use the provider's connection string |
+| `DIRECT_URL` | Migration-compatible database connection |
+| `GEMINI_API_KEY` | Server-only key; optional until AI is configured |
+| `GEMINI_MODEL` | Model setting from the example file; provider availability must be verified |
+| `GROQ_API_KEY` | Server-only key; optional until AI is configured |
+| `GROQ_ATLAS_MODEL` | Atlas model setting; interface currently hidden |
+| `GROQ_ITINERARY_MODEL` | Itinerary model setting |
+
+Use the placeholder connection-string formats in [server/.env.example](server/.env.example), replacing project, host and password values with those provided for your database. URL-encode reserved characters in database passwords.
+
+Configure Supabase Auth to allow `http://localhost:5173/login` for confirmation and `http://localhost:5173/reset-password` for recovery. Keep the browser origin consistent; localhost and 127.0.0.1 have separate browser sessions.
+
+### Database and local development
 
 ```bash
 npm run check:connection
+npm run db:generate
 npm run db:deploy
 npm run db:seed
 npm run dev
 ```
 
-The connection check verifies Auth and PostgreSQL without printing keys or passwords. Run database deployment and seeding only after the connection check passes.
+Confirm the intended database before running migrations or seeding: those commands modify it. The seed creates/updates the 20 curated destinations.
 
-## Current verification
+Open [the local website](http://localhost:5173). The API runs on port 4000; [its health endpoint](http://localhost:4000/api/health) returns a service status. Health alone does not verify database connectivity.
 
-- Client production build passes.
-- Supabase Auth and PostgreSQL connection checks pass with local `.env` files.
-- The live database has 20 destination records and all 11 committed migrations applied.
-- Prisma schema validation passes.
-- All 16 server tests pass.
-- Public pages pass the current responsive and dark-mode checks.
+To start only one service, use `npm run dev -w client` or `npm run dev -w server`. Frontend-only rendering does not provide working authenticated data flows. The client uses a strict port: stop a duplicate server if port 5173 is occupied. Restart after environment changes.
 
-## Not completed yet
+## Typical usage
 
-The following items must not be treated as complete:
+1. Open the landing page and register or sign in.
+2. Confirm your email if required by the configured Supabase project.
+3. Review your profile and starting point.
+4. Browse destinations, create a trip, then access it through My Trips.
+5. Review itinerary and budget information; use the edit screen for trip changes.
+6. Change appearance or account preferences in Settings.
 
-- Live Supabase registration, email confirmation, and sign-in testing
-- End-to-end password-recovery verification
-- Live database persistence testing
-- Trip-planning feature integration
-- New client and API deployment
-- Final screenshots and documentation
+This describes intended navigation. Complete authentication, data-write, AI, sharing and export flows still require end-to-end verification.
 
-Protected pages are included in the design checkpoint. Rendering checks do not establish that every backend workflow is complete.
+## Main API endpoints
 
-## Current files
+These are implemented endpoints, not a claim that every live workflow has been tested. Protected endpoints require a Supabase bearer token and enforce their route-level authorization.
 
-- `client/src/pages/LandingPage.jsx` — public landing page
-- `client/src/pages/AuthPage.jsx` — sign-in and registration pages
-- `client/src/components/BrandLogo.jsx` — reusable SmartTrip logo
-- `client/src/fresh.css` — current public-page design and responsive styles
+| Method | Path | Purpose |
+| --- | --- | --- |
+| GET | `/api/health` | Service health |
+| GET | `/api/destinations` | Featured destinations |
+| GET | `/api/destinations/photo?title=...` | External photo lookup |
+| GET / PUT / DELETE | `/api/profile` | Read/update profile or confirmed account deletion |
+| GET / POST | `/api/trips` | List/create trips |
+| GET | `/api/trips/stats` | Trip statistics |
+| GET / PUT / DELETE | `/api/trips/:id` | Read/update/delete an owned trip |
+| POST | `/api/trips/:id/status` | Change trip status |
+| PATCH | `/api/trips/:id/budget` | Update budget |
+| POST | `/api/itinerary/trips/:tripId/days` | Add itinerary day |
+| POST | `/api/itinerary/days/:dayId/activities` | Add activity |
+| PUT / DELETE | `/api/itinerary/activities/:id` | Edit/delete activity |
+| GET | `/api/travel/:id` | Trip travel toolkit |
+| GET | `/api/share/:token` | Read shared trip |
+| POST / DELETE | `/api/share/trips/:id` | Create/revoke sharing |
+
+Additional handlers live in `server/src/routes/`, including day management, activity ordering, checklists and AI integrations. Auth registration, login and recovery use Supabase rather than custom Express login endpoints.
+
+## Project structure
+
+- `client/src/App.jsx`: application routing, protected shell and navigation.
+- `client/src/pages/`: public, account and protected screens.
+- `client/src/components/`: shared controls, images and map preview.
+- `client/src/context/`: authentication state.
+- `client/src/lib/`: client API helpers, Supabase and release settings.
+- `client/src/style.css`, `tactile.css`, `fresh.css`, `proposal.css`: shared/page styles.
+- `client/public/assets/`: logos and local destination photography.
+- `server/src/`: Express API, middleware and integrations.
+- `server/prisma/`: database schema, migrations and seed.
+- `server/scripts/`: connectivity checks.
+- `server/test/`: automated tests.
+- `AI-USAGE.md`: AI assistance and authorship evidence.
+
+## Verification
+
+```bash
+npm run build -w client
+npm test
+npm run build
+```
+
+The full build also runs Prisma schema validation and requires server database environment variables. It does not deploy the application or prove live workflows.
+
+Recorded results:
+- Client production build and all 16 server tests passed in the submission copy.
+- Earlier configured-environment checks confirmed Supabase Auth/PostgreSQL connectivity, 20 destinations and 11 applied migrations.
+- Main application layouts were checked at 320/768/1024/1440 pixels in light/dark modes without document-width overflow. This is not certification across every browser or physical device.
+
+## Screenshots
+
+Saved, privacy-safe screenshots are still pending. Do not treat proposal mockups as evidence of a working application.
+
+## Known limitations and next steps
+
+- Full registration, confirmation, recovery and session-flow verification remains pending.
+- Populated-trip creation/editing/persistence, budgets, analytics, sharing and exports require end-to-end tests.
+- Map tiles need network access; interactive trip maps/directions are deferred.
+- Atlas is hidden; AI credentials/provider behavior are not verified.
+- External destination-photo lookup can fail; fallbacks are provided.
+- The latest clean-install audit reported two moderate and four high vulnerabilities; compatible remediation is pending.
+- No current public deployment has been verified. Separate client/API Vercel deployment and live testing remain planned.
+- Final screenshots and complete documentation evidence remain pending.
+
+## AI credit
+
+Developed with substantial AI assistance for code, design, troubleshooting, tests and documentation. See [AI-USAGE.md](AI-USAGE.md) for the working evidence log, corrections and authorship status. Independently authored backend contributions are not yet verified.
+
+Weekly reports, documentation submissions and personal reflections belong in the private class workspace; this public repository contains the application and required public documentation.
 
 ## Photo credits
 
@@ -114,7 +213,3 @@ Protected pages are included in the design checkpoint. Rendering checks do not e
 - Boracay: Choi2451, [White beach on Boracay island](https://commons.wikimedia.org/wiki/File:White_beach_on_boracay_island.jpg)
 - Batanes: Johnkevinreglos, [Vayang Rolling Hills, Batanes, Philippines](https://commons.wikimedia.org/wiki/File:Vayang_Rolling_Hills,_Batanes,_Philippines.jpg)
 - Siargao: CharMel Creations, [Siargao Island](https://commons.wikimedia.org/wiki/File:Siargao_Island.jpg)
-
-## Current project status
-
-This is a frontend design checkpoint, not a finished production release. Weekly reports, documentation submissions and personal reflections belong in the private class workspace, not this public repository.
