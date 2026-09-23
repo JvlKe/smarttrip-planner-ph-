@@ -184,7 +184,9 @@ Recorded results:
 
 ## Screenshots
 
-Saved, privacy-safe screenshots are still pending. Do not treat proposal mockups as evidence of a working application.
+This privacy-safe screenshot was captured from the running Week 1 application. It is application evidence, not a proposal mockup.
+
+![SmartTrip Planner PH Week 1 landing page](docs/screenshots/week-1-landing.png)
 
 ## Known limitations and next steps
 
@@ -195,7 +197,7 @@ Saved, privacy-safe screenshots are still pending. Do not treat proposal mockups
 - External destination-photo lookup can fail; fallbacks are provided.
 - The latest clean-install audit reported two moderate and four high vulnerabilities; compatible remediation is pending.
 - No current public deployment has been verified. Separate client/API Vercel deployment and live testing remain planned.
-- Final screenshots and complete documentation evidence remain pending.
+- Additional screenshots of authenticated workflows will be added after their end-to-end verification.
 
 ## AI credit
 
