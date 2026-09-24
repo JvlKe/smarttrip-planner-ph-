@@ -1,7 +1,6 @@
 import { Router } from "express";
 import { prisma } from "../lib/prisma.js";
 import { requireAuth } from "../middleware/auth.js";
-import { publicTrip } from "../lib/publicTrip.js";
 const router = Router();
 const publicInclude = {
   destination: true,
@@ -21,8 +20,8 @@ router.get("/:token", async (req, res, next) => {
       return res
         .status(404)
         .json({ error: "This shared trip is unavailable." });
-    res.set("Cache-Control", "no-store");
-    res.json(publicTrip(link.trip));
+    const { userId, notes, ...safeTrip } = link.trip;
+    res.json(safeTrip);
   } catch (e) {
     next(e);
   }
