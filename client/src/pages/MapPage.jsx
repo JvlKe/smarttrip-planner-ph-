@@ -15,35 +15,7 @@ import { api } from "../lib/api";
 import { saveDownload } from "../lib/tripView";
 import { useAuth } from "../context/AuthContext";
 
-const GOOGLE_MAPS_MAX_ROUTE_POINTS = 11;
-
-function googleMapsDirectionsUrl(points, destination, startingPoint) {
-  if (!points.length) return "";
-  const place = (point) => {
-    const name = String(point.location || point.title || "").trim();
-    if (!name) return `${point.latitude},${point.longitude}`;
-    if (
-      destination &&
-      !name.toLowerCase().includes(String(destination).toLowerCase())
-    )
-      return `${name}, ${destination}`;
-    return name;
-  };
-  if (points.length === 1 && !startingPoint) {
-    const url = new URL("https://www.google.com/maps/search/");
-    url.searchParams.set("api", "1");
-    url.searchParams.set("query", place(points[0]));
-    return url.toString();
-  }
-  const url = new URL("https://www.google.com/maps/dir/");
-  url.searchParams.set("api", "1");
-  url.searchParams.set("origin", startingPoint || place(points[0]));
-  url.searchParams.set("destination", place(points.at(-1)));
-  const waypoints = startingPoint ? points.slice(0, -1) : points.slice(1, -1);
-  if (waypoints.length)
-    url.searchParams.set("waypoints", waypoints.map(place).join("|"));
-  return url.toString();
-}
+import { hasCoordinates, googleMapsDirectionsUrl, MAX_ROUTE_PINS, pinsGeoJson } from "../lib/mapData.js";
 
 function FitPins({ pins, selected }) {
   const map = useMap();
@@ -125,28 +97,27 @@ export default function MapPage() {
   const pins = useMemo(
     () =>
       matchingLocations.filter(
-        (p) => Number.isFinite(p.latitude) && Number.isFinite(p.longitude),
+        hasCoordinates,
       ),
     [matchingLocations],
   );
   const selected = pins.find((p) => p.id === selectedId);
   const missing = matchingLocations.filter(
-    (p) => !Number.isFinite(p.latitude) || !Number.isFinite(p.longitude),
+    (p) => !hasCoordinates(p),
   ).length;
   const refreshableLocations = trip
     ? matchingLocations.filter((value) => value.location?.trim())
     : [];
   const refreshTooLarge = refreshableLocations.length > 12;
   const startingPoint = profile?.location?.trim() || "";
-  const routePinLimit = GOOGLE_MAPS_MAX_ROUTE_POINTS - (startingPoint ? 1 : 0);
+  const routePinLimit = MAX_ROUTE_PINS;
   const routeTooLong = pins.length > routePinLimit;
-  const destination = trip?.destination?.name || trip?.customLocation || "";
   const directionsUrl = useMemo(
     () =>
       routeTooLong
         ? ""
-        : googleMapsDirectionsUrl(pins, destination, startingPoint),
-    [destination, pins, routeTooLong, startingPoint],
+        : googleMapsDirectionsUrl(pins, startingPoint),
+    [pins, routeTooLong, startingPoint],
   );
   function openDirections() {
     if (!directionsUrl) return;
@@ -184,18 +155,7 @@ export default function MapPage() {
   function exportPins() {
     saveDownload(
       JSON.stringify(
-        {
-          type: "FeatureCollection",
-          features: pins.map((p) => ({
-            type: "Feature",
-            geometry: { type: "Point", coordinates: [p.longitude, p.latitude] },
-            properties: {
-              name: p.title,
-              day: p.dayNumber,
-              location: p.location,
-            },
-          })),
-        },
+        pinsGeoJson(pins),
         null,
         2,
       ),
@@ -369,9 +329,8 @@ export default function MapPage() {
               )}
               {routeTooLong && (
                 <p className="field-help" role="status">
-                  Google Maps supports up to 11 locations in one shared route,
-                  including your starting point. Choose a day to create
-                  directions for this trip.
+                  Choose a day or narrow your search to four stops or fewer
+                  for directions that also work in mobile browsers.
                 </p>
               )}
               {refreshTooLarge && (
