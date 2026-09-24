@@ -1,5 +1,4 @@
 import { Router } from "express";
-import { startingPointFor } from "../lib/startingPoint.js";
 import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
 import { requireAuth } from "../middleware/auth.js";
@@ -62,7 +61,7 @@ router.get("/:id", async (req, res, next) => {
         : "Confirm fares, terminals, transfer times, and backup transport options.";
     res.set("Cache-Control", "no-store, max-age=0").json({
       departure: {
-        startingPoint: startingPointFor(trip.profile.location),
+        startingPoint: trip.profile.location,
         destination: trip.destination?.name || trip.customLocation,
         region: trip.destination?.region || null,
         startDate: trip.startDate,

@@ -1,2 +1,2 @@
-// Local Week 2 increment. See the verification notes before publishing.
-export const MAPS_ENABLED = true;
+// Week 1 submission scope; retain maps for Week 2 integration and verification.
+export const MAPS_ENABLED = false;

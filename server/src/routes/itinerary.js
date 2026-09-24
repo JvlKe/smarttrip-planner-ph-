@@ -1,5 +1,4 @@
 import { Router } from "express";
-import { startingPointFor } from "../lib/startingPoint.js";
 import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
 import { requireAuth } from "../middleware/auth.js";
@@ -476,7 +475,7 @@ router.post("/trips/:tripId/generate", async (req, res, next) => {
       Math.floor((trip.endDate - trip.startDate) / 86400000) + 1,
     );
     const destination = trip.destination?.name || trip.customLocation;
-    const startingPoint = startingPointFor(trip.profile?.location);
+    const startingPoint = trip.profile?.location || "Not provided";
     const requested = await destinationAwarePlaces(trip);
     const requestedPlaces = requested.places.length
       ? requested.places.join(", ")
@@ -616,7 +615,7 @@ router.post("/trips/:tripId/improve", async (req, res, next) => {
     if (!day)
       return res.status(404).json({ error: "Itinerary day not found." });
     const destination = trip.destination?.name || trip.customLocation;
-    const startingPoint = startingPointFor(trip.profile?.location);
+    const startingPoint = trip.profile?.location || "Not provided";
     const otherCost = trip.days
       .filter((value) => value.id !== day.id)
       .flatMap((value) => value.activities)

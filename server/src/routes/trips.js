@@ -163,10 +163,10 @@ router.post("/", async (req, res, next) => {
       where: { id: req.user.id },
       select: { location: true },
     });
-    if (!profile)
+    if (!profile?.location?.trim())
       return res.status(400).json({
         error:
-          "Complete your profile before creating a trip.",
+          "Add your required starting point in Profile before creating a trip.",
       });
     const result = await prisma.$transaction(
       async (tx) => {
