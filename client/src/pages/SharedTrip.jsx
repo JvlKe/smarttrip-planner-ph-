@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { api } from "../lib/api";
+import { dateLabel } from "../lib/tripView.js";
 const peso = (n) =>
   new Intl.NumberFormat("en-PH", {
     style: "currency",
@@ -37,8 +38,8 @@ export default function SharedTrip() {
         <h1>{trip.name}</h1>
         <p>
           {trip.destination?.name || trip.customLocation} ·{" "}
-          {new Date(trip.startDate).toLocaleDateString()} –{" "}
-          {new Date(trip.endDate).toLocaleDateString()} · {trip.travelers}{" "}
+          {dateLabel(trip.startDate)} –{" "}
+          {dateLabel(trip.endDate)} · {trip.travelers}{" "}
           traveler(s) · {peso(trip.totalBudget)}
         </p>
       </section>
