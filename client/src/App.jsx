@@ -10,7 +10,6 @@ import { useAuth } from "./context/AuthContext";
 import AuthPage from "./pages/AuthPage";
 import { ForgotPassword, ResetPassword } from "./pages/PasswordRecovery";
 import AppBoundary from "./components/AppBoundary";
-import AtlasBoundary from "./components/AtlasBoundary";
 import { api, reportClientError } from "./lib/api";
 import ErrorPage from "./pages/ErrorPage";
 import Icon from "./components/Icon";
@@ -90,7 +89,6 @@ function PageEffects() {
 function DepartureNotifier() {
   useEffect(() => {
     if (
-      !("Notification" in window) ||
       localStorage.getItem("tripNotifications") !== "on" ||
       Notification.permission !== "granted"
     )
@@ -278,7 +276,6 @@ function Shell() {
           </NavLink>
         ))}
       </nav>
-      <AtlasBoundary />
     </div>
   );
 }
