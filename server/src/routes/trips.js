@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
+import { computeBudgetSummary } from "../lib/budgetSummary.js";
 import { requireAuth } from "../middleware/auth.js";
 
 const router = Router();
@@ -117,7 +118,8 @@ async function refreshStatusesNow(userId) {
   ]);
 }
 async function owned(id, userId) {
-  return prisma.trip.findFirst({ where: { id, userId }, include });
+  const trip = await prisma.trip.findFirst({ where: { id, userId }, include });
+  return trip ? { ...trip, budgetSummary: computeBudgetSummary(trip) } : null;
 }
 
 router.get("/stats", async (req, res, next) => {

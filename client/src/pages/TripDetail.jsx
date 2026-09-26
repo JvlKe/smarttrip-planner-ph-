@@ -599,15 +599,21 @@ export default function TripDetail() {
     value.latitude,
     value.longitude,
   ]);
-  const plannedCost = trip.days
-    .flatMap((value) => value.activities)
-    .reduce((sum, value) => sum + Number(value.estimatedCost), 0);
+  const plannedCost =
+    trip.budgetSummary?.scheduledTotal ??
+    trip.days
+      .flatMap((value) => value.activities)
+      .reduce((sum, value) => sum + Number(value.estimatedCost), 0);
   const budgetTotal = Number(trip.totalBudget);
-  const budgetPercent = budgetTotal
-    ? Math.round((plannedCost / budgetTotal) * 100)
-    : 0;
+  const budgetPercent =
+    trip.budgetSummary?.percentUsed ??
+    (budgetTotal ? Math.round((plannedCost / budgetTotal) * 100) : 0);
   const budgetState =
-    budgetPercent > 100 ? "over" : budgetPercent >= 85 ? "near" : "within";
+    trip.budgetSummary?.isOverBudget || budgetPercent > 100
+      ? "over"
+      : budgetPercent >= 85
+        ? "near"
+        : "within";
   const dayDuration = (day?.activities || []).reduce(
     (sum, value) => sum + Number(value.durationMin || 0),
     0,
@@ -1602,9 +1608,19 @@ export default function TripDetail() {
                       ? `Over budget by ${peso(plannedCost - budgetTotal)}. Use “Make cheaper” on a day.`
                       : budgetState === "near"
                         ? "Close to the budget limit—keep an emergency buffer."
-                        : `Within budget with ${peso(Math.max(0, budgetTotal - plannedCost))} remaining.`}
+                        : `Within budget with ${peso(trip.budgetSummary?.remainingBudget ?? Math.max(0, budgetTotal - plannedCost))} remaining.`}
                   </small>
                 </div>
+                {trip.budgetSummary?.warnings?.length > 0 && (
+                  <div className="schedule-warnings" role="status">
+                    <b>Some activity costs were excluded from this total:</b>
+                    <ul>
+                      {trip.budgetSummary.warnings.slice(0, 4).map((warning) => (
+                        <li key={warning}>{warning}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
                 <p className="transport-note">
                   {trip.transportMode === "PRIVATE_VEHICLE"
                     ? "Private vehicle: transport includes estimated fuel, tolls, and parking."
