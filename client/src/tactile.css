@@ -815,6 +815,61 @@ a {
   font-size: 12px;
   line-height: 1.6;
 }
+.destination-field {
+  position: relative;
+}
+.destination-field:focus-within {
+  z-index: 10;
+}
+.destination-picker {
+  position: relative;
+  width: 100%;
+}
+.destination-picker input {
+  width: 100%;
+}
+.destination-options {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 6px);
+  right: 0;
+  left: 0;
+  max-height: min(300px, 45vh);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: 0 12px 30px #102d2830;
+}
+.destination-option {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-height: 48px;
+  padding: 8px 12px;
+  cursor: pointer;
+}
+.destination-option + .destination-option {
+  border-top: 1px solid var(--line);
+}
+.destination-option:hover,
+.destination-option.active,
+.destination-option[aria-selected="true"] {
+  background: var(--inset);
+}
+.destination-option small {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+}
+.destination-no-results {
+  margin: 0;
+  padding: 14px 12px;
+  color: var(--muted);
+  font-size: 12px;
+}
 .plan-choice label {
   background: var(--inset);
   border: 1px solid var(--line);

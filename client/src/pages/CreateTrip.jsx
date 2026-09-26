@@ -53,6 +53,9 @@ export default function CreateTrip() {
       desiredPlaces: "",
     };
   });
+  const [destinationSearch, setDestinationSearch] = useState("");
+  const [destinationPickerOpen, setDestinationPickerOpen] = useState(false);
+  const [activeDestination, setActiveDestination] = useState(-1);
   useEffect(() => {
     api("/destinations")
       .then(setDestinations)
@@ -106,6 +109,10 @@ export default function CreateTrip() {
       );
       return;
     }
+    if (!destination) {
+      setError("Choose a destination from the search results.");
+      return;
+    }
     setBusy(true);
     setGenerationStage("saving");
     setError("");
@@ -147,6 +154,41 @@ export default function CreateTrip() {
   const destination = destinations.find(
     (d) => String(d.id) === String(form.destinationId),
   );
+  const filteredDestinations = destinations.filter((place) =>
+    `${place.name} ${place.region}`
+      .toLocaleLowerCase()
+      .includes(destinationSearch.trim().toLocaleLowerCase()),
+  );
+  function chooseDestination(place) {
+    setForm((current) => ({ ...current, destinationId: String(place.id) }));
+    setDestinationSearch("");
+    setDestinationPickerOpen(false);
+    setActiveDestination(-1);
+  }
+  function handleDestinationKeyDown(event) {
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      setDestinationPickerOpen(true);
+      setActiveDestination((current) =>
+        Math.min(current + 1, filteredDestinations.length - 1),
+      );
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      setDestinationPickerOpen(true);
+      setActiveDestination((current) => Math.max(current - 1, 0));
+    } else if (event.key === "Enter" && destinationPickerOpen) {
+      event.preventDefault();
+      const place =
+        filteredDestinations[activeDestination] ||
+        (filteredDestinations.length === 1 ? filteredDestinations[0] : null);
+      if (place) chooseDestination(place);
+    } else if (event.key === "Escape" && destinationPickerOpen) {
+      event.preventDefault();
+      setDestinationSearch("");
+      setDestinationPickerOpen(false);
+      setActiveDestination(-1);
+    }
+  }
   const checklist = [
     [!!profile?.location?.trim(), "Starting point"],
     [!!form.name.trim(), "Trip name"],
@@ -211,26 +253,88 @@ export default function CreateTrip() {
                     disabled={locked}
                   />
                 </label>
-                <label>
+                <label
+                  className="destination-field"
+                  onBlur={(event) => {
+                    if (!event.currentTarget.contains(event.relatedTarget))
+                      setDestinationPickerOpen(false);
+                  }}
+                >
                   Destination
-                  <select
-                    name="destinationId"
-                    value={form.destinationId}
-                    onChange={update}
-                    required
-                    disabled={loadingPlaces || locked}
-                  >
-                    <option value="">
-                      {loadingPlaces
-                        ? "Loading destinations…"
-                        : "Choose one of 20 destinations"}
-                    </option>
-                    {destinations.map((d) => (
-                      <option key={d.id} value={d.id}>
-                        {d.name} — {d.region}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="destination-picker">
+                    <input
+                      type="search"
+                      role="combobox"
+                      aria-label="Search destinations"
+                      aria-autocomplete="list"
+                      aria-expanded={destinationPickerOpen}
+                      aria-controls="destination-options"
+                      aria-activedescendant={
+                        destinationPickerOpen && activeDestination >= 0
+                          ? `destination-option-${filteredDestinations[activeDestination]?.id}`
+                          : undefined
+                      }
+                      aria-required="true"
+                      autoComplete="off"
+                      placeholder={
+                        loadingPlaces
+                          ? "Loading destinations…"
+                          : "Search 20 destinations by name or region"
+                      }
+                      value={
+                        destinationPickerOpen
+                          ? destinationSearch
+                          : destination?.name || ""
+                      }
+                      onFocus={() => {
+                        setDestinationSearch("");
+                        setDestinationPickerOpen(true);
+                        setActiveDestination(-1);
+                      }}
+                      onChange={(event) => {
+                        setDestinationSearch(event.target.value);
+                        setDestinationPickerOpen(true);
+                        setActiveDestination(-1);
+                        setForm((current) => ({
+                          ...current,
+                          destinationId: "",
+                        }));
+                      }}
+                      onKeyDown={handleDestinationKeyDown}
+                      disabled={loadingPlaces || locked}
+                    />
+                    {destinationPickerOpen && !loadingPlaces && !locked && (
+                      <div
+                        className="destination-options"
+                        id="destination-options"
+                        role="listbox"
+                        aria-label="Matching destinations"
+                      >
+                        {filteredDestinations.length ? (
+                          filteredDestinations.map((place, index) => (
+                            <div
+                              className={`destination-option${index === activeDestination ? " active" : ""}`}
+                              id={`destination-option-${place.id}`}
+                              key={place.id}
+                              role="option"
+                              aria-selected={
+                                String(place.id) === String(form.destinationId)
+                              }
+                              onMouseDown={(event) => event.preventDefault()}
+                              onClick={() => chooseDestination(place)}
+                            >
+                              <span>{place.name}</span>
+                              <small>{place.region}</small>
+                            </div>
+                          ))
+                        ) : (
+                          <p className="destination-no-results">
+                            No destinations match “{destinationSearch}”.
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </label>
                 <label>
                   Start date
