@@ -7,6 +7,7 @@ import "./style.css";
 import "./tactile.css";
 import "./fresh.css";
 import "./proposal.css";
+import "./responsive.css";
 document.documentElement.dataset.theme =
   localStorage.getItem("theme") || "light";
 

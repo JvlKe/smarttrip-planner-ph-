@@ -1,2 +1,2 @@
-// Week 1 submission scope; retain maps for Week 2 integration and verification.
-export const MAPS_ENABLED = false;
+// Interactive map implementation is enabled for Week 2 verification.
+export const MAPS_ENABLED = true;

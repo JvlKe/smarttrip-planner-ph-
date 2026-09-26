@@ -4,14 +4,14 @@ SmartTrip Planner PH helps travelers organize Philippine destinations, trip date
 
 ## Current milestone
 
-Week 1 design and connected foundation, due September 23, 2026. This is not a finished production release.
+Week 2 implementation and verification are in progress. This is not a finished production release.
 
 - Public landing, sign-in, registration and recovery interfaces.
 - Dashboard, trips, trip creation/editing, destinations, analytics, profile and settings interfaces.
 - Responsive desktop/mobile navigation and light/dark themes.
 - Twenty curated destinations, with selected locally stored landmark photos and unavailable-photo fallbacks.
 - Supabase authentication integration and API profile creation.
-- Fixed Philippines map preview only. Interactive trip maps/directions are disabled through `client/src/lib/releaseScope.js`.
+- Interactive trip maps are enabled for Week 2 verification, with itinerary pins, day filters, map/list views, GeoJSON export and Google Maps directions when coordinates are available.
 - Atlas is not exposed in the interface. AI configuration and verification remain pending.
 
 Implemented screens and API handlers are not equivalent to fully verified user flows.
@@ -45,7 +45,7 @@ All `/app` routes require a signed-in session; unauthenticated visitors are redi
 | `/app/trips/:id` | Trip details | Itinerary, activities, budget and trip actions |
 | `/app/trips/:id/edit` | Edit Trip | Existing-trip editing form |
 | `/app/destinations` | Destinations | Discovery cards, search and interest filters |
-| `/app/map` | Travel Map | Fixed geographic preview; no interactive trip mapping |
+| `/app/map` | Travel Map | Trip pins, day filtering, map/list views, GeoJSON pin export and Google Maps directions; availability depends on coordinates and network access |
 | `/app/analytics` | Analytics | Trip and estimated-budget summaries |
 | `/app/profile` | Profile | Profile photo, personal details and starting point |
 | `/app/settings` | Settings | Appearance, reminders and account-deletion interface |
@@ -192,7 +192,7 @@ This privacy-safe screenshot was captured from the running Week 1 application. I
 
 - Full registration, confirmation, recovery and session-flow verification remains pending.
 - Populated-trip creation/editing/persistence, budgets, analytics, sharing and exports require end-to-end tests.
-- Map tiles need network access; interactive trip maps/directions are deferred.
+- Map tiles need network access; pin accuracy depends on itinerary coordinates, and directions open in Google Maps.
 - Atlas is hidden; AI credentials/provider behavior are not verified.
 - External destination-photo lookup can fail; fallbacks are provided.
 - The latest clean-install audit reported two moderate and four high vulnerabilities; compatible remediation is pending.

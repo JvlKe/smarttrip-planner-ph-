@@ -1,0 +1,456 @@
+/**
+ * responsive.css
+ *
+ * Responsive fixes and enhancements for SmartTrip PH.
+ * Applied on top of style.css and fresh.css.  Nothing here
+ * overrides intentional desktop styles — only fills gaps for
+ * mobile, tablet, and wide-desktop viewports.
+ *
+ * Breakpoints used:
+ *   ≥ 1400px  — wide desktop (fluid content expansion)
+ *   ≤ 1100px  — tablet landscape
+ *   ≤  760px  — mobile  (matches the existing primary breakpoint)
+ *   ≤  480px  — small phone
+ *   ≤  360px  — very small phone (Galaxy A, iPhone SE)
+ */
+
+/* =========================================================================
+   1. MOBILE BOTTOM NAV  (.mobile-bottom-nav)
+   App.jsx renders <nav className="mobile-bottom-nav"> but style.css only
+   styles ".mobile-nav".  Wire the correct class so the tab bar appears.
+   ========================================================================= */
+
+.mobile-bottom-nav {
+  display: none; /* hidden on desktop */
+}
+
+@media (max-width: 760px) {
+  .mobile-bottom-nav {
+    display: flex;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 60;
+    background: #fff;
+    border-top: 1px solid var(--line);
+    /* respect iPhone home-bar */
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  .mobile-bottom-nav a {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    min-height: 56px;
+    padding: 6px 4px;
+    color: #829094;
+    font-size: 9px;
+    font-weight: 800;
+    text-decoration: none;
+    border-top: 2px solid transparent;
+    transition: color 0.15s ease, border-color 0.15s ease;
+  }
+
+  .mobile-bottom-nav a small {
+    font-size: 9px;
+    font-weight: 800;
+  }
+
+  .mobile-bottom-nav a.active {
+    color: var(--teal);
+    border-top-color: var(--teal);
+  }
+
+  /* The "Create" centre button gets a highlighted pill */
+  .mobile-bottom-nav a.create-nav-item {
+    color: #fff;
+  }
+
+  .mobile-bottom-nav a.create-nav-item span {
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    border-radius: 14px;
+    background: var(--teal);
+    box-shadow: 0 6px 18px rgba(15, 118, 110, 0.32);
+    color: #fff;
+    margin-bottom: 1px;
+  }
+
+  /* Push page content above the tab bar */
+  .app-main {
+    padding-bottom: calc(56px + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* Dark mode bottom nav */
+  [data-theme="dark"] .mobile-bottom-nav {
+    background: #102a31;
+    border-color: #294a51;
+  }
+
+  [data-theme="dark"] .mobile-bottom-nav a {
+    color: #6e9099;
+  }
+
+  [data-theme="dark"] .mobile-bottom-nav a.active {
+    color: #43cfc3;
+    border-top-color: #43cfc3;
+  }
+}
+
+/* =========================================================================
+   2. SIDEBAR NAVIGATION ICON SPACING
+   aside nav a already has styles but icons (SVG / Icon component) need a
+   consistent gap and alignment so they don't crowd the label text.
+   ========================================================================= */
+
+aside nav a {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+aside nav a svg,
+aside nav a .icon {
+  flex: 0 0 18px;
+  width: 18px;
+  height: 18px;
+}
+
+/* =========================================================================
+   3. TABLET LAYOUT  (≤ 1100px)
+   Fills the gap between the 1000px and 760px breakpoints where grids
+   already collapse but padding and font sizes need softening.
+   ========================================================================= */
+
+@media (max-width: 1100px) {
+  .dash,
+  .page {
+    padding: 24px 24px;
+  }
+
+  /* Stats row: 4 → 2 columns at tablet */
+  .stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  /* Trip grid: 3 → 2 at tablet */
+  .trip-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  /* Filters: relax the fixed min-width so the search box doesn't overflow */
+  .filters label {
+    min-width: 0;
+    flex: 1 1 240px;
+  }
+
+  /* Form stepper connector lines shorten gracefully */
+  .stepper i {
+    width: 70px;
+  }
+
+  /* Planning completeness card: drop the 3-column layout to 2 */
+  .planning-completeness {
+    grid-template-columns: 130px 1fr;
+  }
+
+  .planning-completeness > div:last-child {
+    grid-column: 1 / -1;
+  }
+}
+
+/* =========================================================================
+   4. GENERAL MOBILE HARDENING  (≤ 760px)
+   Fills remaining gaps not yet covered by style.css.
+   ========================================================================= */
+
+@media (max-width: 760px) {
+  /* --- 4a. Touch targets ------------------------------------------------ */
+  /* Every interactive element should be at least 44 × 44 px for fat fingers */
+  .btn,
+  .text-btn,
+  .icon-btn,
+  aside nav a,
+  .mobile-bottom-nav a,
+  .day-tabs button,
+  .chip {
+    min-height: 44px;
+  }
+
+  /* The tiny activity-action selects need at least 40px height */
+  .activity-actions select,
+  .activity-actions button {
+    min-height: 40px;
+  }
+
+  /* --- 4b. Horizontal overflow prevention ------------------------------- */
+  img,
+  video,
+  iframe,
+  svg {
+    max-width: 100%;
+  }
+
+  table {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* --- 4c. Dashboard grid: remove the side-panel split on mobile -------- */
+  .dash-grid {
+    grid-template-columns: 1fr;
+  }
+
+  /* --- 4d. Stats: 2 → 1 column on very narrow screens handled by 420px
+             breakpoint already; keep 2 here for 420–760 range ------------ */
+
+  /* --- 4e. Shared trip page --------------------------------------------- */
+  .shared-page {
+    padding: 16px;
+  }
+
+  .shared-header {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .shared-header img {
+    width: 120px;
+  }
+
+  /* --- 4f. Empty state on mobile ---------------------------------------- */
+  .empty-state {
+    padding: 40px 20px;
+  }
+
+  /* --- 4g. Budget editor labels wrap instead of overflow ---------------- */
+  .budget-editor label {
+    grid-template-columns: 1fr;
+    gap: 5px;
+  }
+
+  .budget-editor input {
+    width: 100%;
+  }
+
+  /* --- 4h. Itinerary controls: make selects full-width ------------------ */
+  .itinerary-controls {
+    justify-content: stretch;
+  }
+
+  .itinerary-controls select {
+    width: 100%;
+    min-width: 0;
+  }
+
+  /* --- 4i. Export menu: prevent right-edge clip on small screens -------- */
+  .export-menu > div {
+    right: auto;
+    left: 0;
+    max-width: calc(100vw - 28px);
+  }
+
+  /* --- 4j. Alternative panel: full-width when open ---------------------- */
+  .lakbay-widget {
+    /* ensure it sits above the bottom nav */
+    bottom: calc(62px + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* --- 4k. Auth layout: single column ----------------------------------- */
+  .auth-layout {
+    grid-template-columns: 1fr;
+  }
+
+  /* --- 4l. Settings card: full width ------------------------------------ */
+  .settings-card {
+    max-width: 100%;
+  }
+
+  /* --- 4m. Prevent stepper from overflowing ------------------------------ */
+  .stepper {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    gap: 10px;
+  }
+
+  .stepper i {
+    display: none; /* hide connector lines on mobile */
+  }
+
+  /* --- 4n. Trip card: prevent text truncation overflow ------------------ */
+  .trip-body h3 {
+    overflow-wrap: anywhere;
+  }
+
+  /* --- 4o. Day total: stacked layout already done; ensure no shrink ----- */
+  .day-total {
+    width: 100%;
+  }
+
+  /* --- 4p. Budget health widget on mobile: full-width row --------------- */
+  .budget-health > strong {
+    float: none;
+    margin-top: 6px;
+    display: block;
+  }
+}
+
+/* =========================================================================
+   5. SMALL PHONE  (≤ 480px)
+   ========================================================================= */
+
+@media (max-width: 480px) {
+  /* Stats: all 4 stat cards in a single column */
+  .stats {
+    grid-template-columns: 1fr;
+  }
+
+  /* Trip cards: single column (already at 420px, extend to 480px safely) */
+  .trip-grid,
+  .trip-grid.large {
+    grid-template-columns: 1fr;
+  }
+
+  /* Form cards: tighter padding on small phones */
+  .form-card {
+    padding: 14px 12px;
+  }
+
+  /* CTA hero buttons: full width */
+  .fresh-hero-actions .fresh-button {
+    width: 100%;
+  }
+
+  /* Destination grid: 1 column */
+  .fresh-destination-grid {
+    grid-template-columns: 1fr;
+  }
+
+  /* Step grid: 1 column */
+  .fresh-step-grid {
+    grid-template-columns: 1fr;
+  }
+
+  /* Feature grid: already 1 col, ensure articles don't shrink awkwardly */
+  .fresh-feature-grid article {
+    padding: 16px;
+  }
+
+  /* Footer: hide photo credits to save space */
+  .fresh-photo-credits {
+    display: none;
+  }
+
+  /* Heading actions: single column at very small width */
+  .heading-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .heading-actions .status {
+    grid-column: auto;
+  }
+}
+
+/* =========================================================================
+   6. VERY SMALL PHONE  (≤ 360px)
+   ========================================================================= */
+
+@media (max-width: 360px) {
+  .hero-copy-fresh h1 {
+    font-size: 32px;
+  }
+
+  .cta h2,
+  .section h2 {
+    font-size: 27px;
+  }
+
+  .day-tabs button {
+    padding: 9px 13px;
+    font-size: 11px;
+  }
+
+  .timeline article {
+    grid-template-columns: 38px 24px minmax(0, 1fr);
+    column-gap: 3px;
+  }
+
+  .timeline article:not(:last-child)::after {
+    left: 51px;
+  }
+
+  .timeline article > i {
+    width: 24px;
+    height: 24px;
+    font-size: 10px;
+  }
+
+  .timeline time {
+    font-size: 8px;
+  }
+
+  .fresh-trust span {
+    font-size: 9px;
+    padding-inline: 5px;
+  }
+}
+
+/* =========================================================================
+   7. WIDE DESKTOP  (≥ 1400px)
+   Give the main content area room to breathe on large monitors.
+   ========================================================================= */
+
+@media (min-width: 1400px) {
+  .dash,
+  .page {
+    padding: 36px 48px;
+  }
+
+  .trip-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .trip-grid.large {
+    grid-template-columns: repeat(4, 1fr);
+  }
+
+  .stats {
+    grid-template-columns: repeat(4, 1fr);
+  }
+
+  .itinerary-grid {
+    grid-template-columns: 1.9fr 0.75fr;
+  }
+}
+
+/* =========================================================================
+   8. PRINT  (supplement to existing print block in style.css)
+   ========================================================================= */
+
+@media print {
+  .mobile-bottom-nav,
+  .mobile-nav-toggle,
+  .mobile-nav-backdrop,
+  .lakbay-widget,
+  .undo-toast {
+    display: none !important;
+  }
+}
+
+/* =========================================================================
+   9. REDUCED MOTION
+   ========================================================================= */
+
+@media (prefers-reduced-motion: reduce) {
+  .mobile-bottom-nav a,
+  aside nav a {
+    transition: none;
+  }
+}
