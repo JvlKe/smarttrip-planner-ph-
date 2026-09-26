@@ -127,7 +127,7 @@ export default function Dashboard() {
                           ? "Enjoy your trip!"
                           : daysUntil === 0
                             ? "Starts today"
-                            : `${daysUntil} days to go!`}
+                            : `${daysUntil} ${daysUntil === 1 ? "day" : "days"} to go!`}
                       </span>
                     </div>
                     <div className="featured-trip-content">

@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
+import { startingPointFor } from "../lib/startingPoint.js";
 import { requireAuth } from "../middleware/auth.js";
 import { geocodeLocation, geocodePhilippinePlace } from "../lib/geocode.js";
 import { generateAiJson } from "../lib/ai.js";
@@ -475,7 +476,7 @@ router.post("/trips/:tripId/generate", async (req, res, next) => {
       Math.floor((trip.endDate - trip.startDate) / 86400000) + 1,
     );
     const destination = trip.destination?.name || trip.customLocation;
-    const startingPoint = trip.profile?.location || "Not provided";
+    const startingPoint = startingPointFor(trip.profile?.location);
     const requested = await destinationAwarePlaces(trip);
     const requestedPlaces = requested.places.length
       ? requested.places.join(", ")
@@ -615,7 +616,7 @@ router.post("/trips/:tripId/improve", async (req, res, next) => {
     if (!day)
       return res.status(404).json({ error: "Itinerary day not found." });
     const destination = trip.destination?.name || trip.customLocation;
-    const startingPoint = trip.profile?.location || "Not provided";
+    const startingPoint = startingPointFor(trip.profile?.location);
     const otherCost = trip.days
       .filter((value) => value.id !== day.id)
       .flatMap((value) => value.activities)

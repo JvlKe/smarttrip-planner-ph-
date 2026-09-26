@@ -2,6 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
 import { profileSchema } from "../lib/profileSchema.js";
+import { startingPointFor } from "../lib/startingPoint.js";
 import { requireAuth } from "../middleware/auth.js";
 import { createClient } from "@supabase/supabase-js";
 import { rateLimit } from "../middleware/rateLimit.js";
@@ -55,7 +56,14 @@ router.delete(
 );
 router.get("/", async (req, res, next) => {
   try {
-    res.json(await prisma.profile.findUnique({ where: { id: req.user.id } }));
+    const profile = await prisma.profile.findUnique({
+      where: { id: req.user.id },
+    });
+    res.json(
+      profile
+        ? { ...profile, location: startingPointFor(profile.location) }
+        : null,
+    );
   } catch (e) {
     next(e);
   }

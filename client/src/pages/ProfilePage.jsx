@@ -8,6 +8,7 @@ import { summarizeTrips } from "../lib/tripView";
 import ChangePasswordForm from "../components/ChangePasswordForm";
 import { supabase } from "../lib/supabase";
 import { profileDisplayName } from "../lib/profileName";
+import { DEFAULT_STARTING_POINT, startingPointFor } from "../lib/startingPoint";
 
 export default function ProfilePage() {
   const { user, profile, setProfile, signOut } = useAuth();
@@ -22,7 +23,7 @@ export default function ProfilePage() {
     fullName: user?.user_metadata?.full_name || "",
     nickname: user?.user_metadata?.nickname || "",
     phone: "",
-    location: "",
+    location: DEFAULT_STARTING_POINT,
     bio: "",
     avatarData: "",
   });
@@ -33,7 +34,7 @@ export default function ProfilePage() {
         fullName: profile.fullName || "",
         nickname: user?.user_metadata?.nickname || "",
         phone: profile.phone || "",
-        location: profile.location || "",
+        location: startingPointFor(profile.location),
         bio: profile.bio || "",
         avatarData: profile.avatarData || "",
       });
@@ -47,7 +48,7 @@ export default function ProfilePage() {
             fullName: p.fullName || "",
             nickname: user?.user_metadata?.nickname || "",
             phone: p.phone || "",
-            location: p.location || "",
+            location: startingPointFor(p.location),
             bio: p.bio || "",
             avatarData: p.avatarData || "",
           });
@@ -251,13 +252,14 @@ export default function ProfilePage() {
                   name="location"
                   value={form.location}
                   onChange={update}
-                  placeholder="e.g. Tokyo, Japan or MNL Terminal 3"
+                  placeholder={DEFAULT_STARTING_POINT}
                   maxLength="160"
                   required
                 />
                 <small className="field-help">
-                  Required for trip planning and directions. International
-                  cities, airports, and full addresses are supported.
+                  Defaults to Cubao, Quezon City. Change it to your actual
+                  starting point; international cities, airports, and full
+                  addresses are supported.
                 </small>
               </label>
             </div>

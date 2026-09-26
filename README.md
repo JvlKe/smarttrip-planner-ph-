@@ -4,12 +4,13 @@ SmartTrip Planner PH helps travelers organize Philippine destinations, trip date
 
 ## Current milestone
 
-Week 2 implementation and verification are in progress. This is not a finished production release.
+Week 2 implementation and verification are in progress (work period recorded: September 24–26, 2026). This is not a finished production release.
 
 - Public landing, sign-in, registration and recovery interfaces.
 - Dashboard, trips, trip creation/editing, destinations, analytics, profile and settings interfaces.
 - Responsive desktop/mobile navigation and light/dark themes.
 - Twenty curated destinations, with selected locally stored landmark photos and unavailable-photo fallbacks.
+- Cubao, Quezon City is the default trip starting point; travelers can replace it with a local or international location in Profile.
 - Supabase authentication integration and API profile creation.
 - Interactive trip maps are enabled for Week 2 verification, with itinerary pins, day filters, map/list views, GeoJSON export and Google Maps directions when coordinates are available.
 - Atlas is not exposed in the interface. AI configuration and verification remain pending.
@@ -177,25 +178,38 @@ npm run build
 
 The full build also runs Prisma schema validation and requires server database environment variables. It does not deploy the application or prove live workflows.
 
-Recorded results:
-- Client production build and all 16 server tests passed in the submission copy.
-- Earlier configured-environment checks confirmed Supabase Auth/PostgreSQL connectivity, 20 destinations and 11 applied migrations.
-- Main application layouts were checked at 320/768/1024/1440 pixels in light/dark modes without document-width overflow. This is not certification across every browser or physical device.
+Recorded results (September 26, 2026):
+- The recorded pre-integration `npm test` run passed all 40 server tests. The opt-in database test is skipped during the default run.
+- `npm run build`: the Vite client production build and Prisma schema validation passed.
+- `npm run check:connection`: Supabase Auth was reachable, PostgreSQL connected, and 20 destination records were present.
+- Eight protected pages were checked at 320, 768, 1024, and 1440 pixels; Trip Detail was also checked at those widths. No document-width overflow or broken images appeared in those checks. This is not certification across every browser or physical device.
+- The dashboard's Recent Trips image now fills its card at desktop width and retains its compact phone layout.
+- The user-reported database-backed trip-flow test at `server/test/trip-flow.test.js` passed 8 tests. It uses Prisma directly rather than HTTP routes, authentication, or the browser. It skips by default. From `server/`, opt in only with a development/test database:
+
+  ```powershell
+  $env:RUN_DATABASE_FLOW_TEST = "1"
+  node --test test/trip-flow.test.js
+  Remove-Item Env:RUN_DATABASE_FLOW_TEST
+  ```
+
+  The Bash equivalent is `RUN_DATABASE_FLOW_TEST=1 node --test test/trip-flow.test.js`. The test creates and deletes a trip under the first profile it finds; unexpected process termination may leave the throwaway trip behind.
 
 ## Screenshots
 
-This privacy-safe screenshot was captured from the running Week 1 application. It is application evidence, not a proposal mockup.
+These privacy-safe screenshots show the running application. The Week 2 image is a crop of the dashboard hero from the supplied screenshot; account and saved-trip details are omitted. It does not claim to demonstrate a completed trip workflow.
 
 ![SmartTrip Planner PH Week 1 landing page](docs/screenshots/week-1-landing.png)
+
+![SmartTrip Planner PH Week 2 dashboard hero](docs/screenshots/week-2-dashboard.png)
 
 ## Known limitations and next steps
 
 - Full registration, confirmation, recovery and session-flow verification remains pending.
-- Populated-trip creation/editing/persistence, budgets, analytics, sharing and exports require end-to-end tests.
+- Authenticated browser/API trip creation, editing, and ownership checks remain to be tested end to end. The database-backed check covers Prisma writes and budget calculations only. Analytics, sharing and exports also need end-to-end tests.
 - Map tiles need network access; pin accuracy depends on itinerary coordinates, and directions open in Google Maps.
 - Atlas is hidden; AI credentials/provider behavior are not verified.
 - External destination-photo lookup can fail; fallbacks are provided.
-- The latest clean-install audit reported two moderate and four high vulnerabilities; compatible remediation is pending.
+- A September 26 dependency audit reports four high-severity advisories in Prisma's dependency tree. The two moderate Morgan/qs advisories were addressed with compatible lockfile updates. npm's suggested Prisma fix would downgrade the configured Prisma version, so that change was not forced and the remaining advisories need a compatibility review.
 - No current public deployment has been verified. Separate client/API Vercel deployment and live testing remain planned.
 - Additional screenshots of authenticated workflows will be added after their end-to-end verification.
 

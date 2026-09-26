@@ -307,7 +307,7 @@ aside nav a .icon {
    ========================================================================= */
 
 @media (max-width: 480px) {
-  /* Stats: all 4 stat cards in a single column */
+  /* Other stats grids collapse; the dashboard keeps its compact 2-column row. */
   .stats {
     grid-template-columns: 1fr;
   }
@@ -452,5 +452,76 @@ aside nav a .icon {
   .mobile-bottom-nav a,
   aside nav a {
     transition: none;
+  }
+}
+
+/* =========================================================================
+   10. TRIP CARD AND SEARCH FILTER LAYOUT
+   Keep the tablet recent-trip image inside its card and prevent the search
+   icon from wrapping above the field when the filter row gets narrow.
+   ========================================================================= */
+
+.filters label.trip-search {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.filters label.trip-search > svg {
+  flex: 0 0 16px;
+  color: var(--muted);
+}
+
+.filters label.trip-search input {
+  flex: 1 1 auto;
+  width: auto;
+}
+
+.app-shell .recent-photo {
+  width: 100%;
+  height: auto;
+  min-height: 0;
+  aspect-ratio: 16 / 9;
+}
+
+@media (min-width: 768px) and (max-width: 1023px) {
+  .recent-card {
+    display: block;
+  }
+
+  .recent-photo {
+    width: 100%;
+    height: auto;
+    min-height: 0;
+    aspect-ratio: 16 / 9;
+  }
+
+  .trip-filter-tabs {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .trip-filter-tabs button {
+    width: auto;
+    justify-self: start;
+    padding-inline: 6px;
+  }
+}
+
+@media (max-width: 760px) {
+  .filters label.trip-search {
+    flex: 0 0 auto;
+  }
+
+  .app-shell .recent-photo {
+    width: 100%;
+    height: 100%;
+    min-height: 108px;
+    aspect-ratio: auto;
+  }
+
+  .trip-filter-tabs button {
+    min-height: 44px;
   }
 }

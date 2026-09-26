@@ -14,6 +14,7 @@ import useTrips from "../hooks/useTrips";
 import { api } from "../lib/api";
 import { saveDownload } from "../lib/tripView";
 import { useAuth } from "../context/AuthContext";
+import { startingPointFor } from "../lib/startingPoint";
 
 const GOOGLE_MAPS_MAX_ROUTE_POINTS = 11;
 
@@ -137,7 +138,7 @@ export default function MapPage() {
     ? matchingLocations.filter((value) => value.location?.trim())
     : [];
   const refreshTooLarge = refreshableLocations.length > 12;
-  const startingPoint = profile?.location?.trim() || "";
+  const startingPoint = startingPointFor(profile?.location);
   const routePinLimit = GOOGLE_MAPS_MAX_ROUTE_POINTS - (startingPoint ? 1 : 0);
   const routeTooLong = pins.length > routePinLimit;
   const destination = trip?.destination?.name || trip?.customLocation || "";

@@ -95,10 +95,8 @@ export default function CreateTrip() {
     : undefined;
   async function submit(e) {
     e.preventDefault();
-    if (!profile?.location?.trim()) {
-      setError(
-        "Add your required starting point in Profile before creating a trip.",
-      );
+    if (!profile) {
+      setError("Finish setting up your profile before creating a trip.");
       return;
     }
     if (exceedsDayLimit) {

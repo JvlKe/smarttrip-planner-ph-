@@ -116,9 +116,10 @@ export default function TripsPage() {
       </PageHeader>
       <div className="page">
         <div className="filters">
-          <label>
-            ⌕{" "}
+          <label className="trip-search">
+            <Icon name="search" size={16} />
             <input
+              aria-label="Search trips or destinations"
               placeholder="Search trips or destinations"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
@@ -137,6 +138,7 @@ export default function TripsPage() {
             ].map(([value, label]) => (
               <button
                 className={filter === value ? "selected" : ""}
+                aria-pressed={filter === value}
                 onClick={() => setFilter(value)}
                 key={value}
               >
