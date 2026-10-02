@@ -24,7 +24,6 @@ app.use(
     origin: process.env.CLIENT_URL?.split(",") ?? "http://localhost:5173",
   }),
 );
-app.use(express.json({ limit: "850kb" }));
 app.use((req, res, next) => {
   const started = performance.now();
   req.requestId = req.get("x-request-id") || randomUUID();
@@ -38,6 +37,7 @@ app.use((req, res, next) => {
   });
   next();
 });
+app.use(express.json({ limit: "850kb" }));
 app.use(morgan("dev"));
 app.get("/api/health", (_req, res) =>
   res.json({ status: "ok", service: "smarttrip-api" }),
@@ -123,7 +123,12 @@ app.use("/api/itinerary", rateLimit({ max: 40 }), itineraryRouter);
 app.use("/api/travel", travelRouter);
 app.use("/api/share", sharingRouter);
 app.use("/api/assistant", rateLimit({ max: 15 }), assistantRouter);
+app.use((_req, res) => res.status(404).json({ error: "Route not found." }));
 app.use((error, req, res, _next) => {
+  if (error.type === "entity.parse.failed")
+    return res.status(400).json({ error: "Invalid JSON body.", requestId: req.requestId });
+  if (error.type === "entity.too.large")
+    return res.status(413).json({ error: "Request body is too large.", requestId: req.requestId });
   console.error(`[${req.requestId}]`, error);
   res.status(500).json({
     error: "Something went wrong. Please try again.",
