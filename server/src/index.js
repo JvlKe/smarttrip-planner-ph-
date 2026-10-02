@@ -11,6 +11,7 @@ import itineraryRouter from "./routes/itinerary.js";
 import assistantRouter from "./routes/assistant.js";
 import travelRouter from "./routes/travel.js";
 import sharingRouter from "./routes/sharing.js";
+import favoritesRouter from "./routes/favorites.js";
 import { rateLimit } from "./middleware/rateLimit.js";
 
 const app = express();
@@ -123,6 +124,7 @@ app.use("/api/itinerary", rateLimit({ max: 40 }), itineraryRouter);
 app.use("/api/travel", travelRouter);
 app.use("/api/share", sharingRouter);
 app.use("/api/assistant", rateLimit({ max: 15 }), assistantRouter);
+app.use("/api/favorites", favoritesRouter);
 app.use((_req, res) => res.status(404).json({ error: "Route not found." }));
 app.use((error, req, res, _next) => {
   if (error.type === "entity.parse.failed")

@@ -1,10 +1,12 @@
 # SmartTrip Planner PH
 
+[![Made with AI assistance](https://img.shields.io/badge/Made_with-AI_assistance-blue)](AI-USAGE.md)
+
 SmartTrip Planner PH helps travelers organize Philippine destinations, trip dates, itineraries and estimated budgets. Its React interface follows the proposal design system, with teal branding, orange actions, Nunito typography, rounded cards and light/dark themes.
 
 ## Current milestone
 
-Week 2 implementation and verification are in progress (work period recorded: September 24–26, 2026). This is not a finished production release.
+Week 3 hardening and deployment preparation are in progress. Week 2 work was recorded September 24–26, 2026. This is not a finished production release.
 
 - Public landing, sign-in, registration and recovery interfaces.
 - Dashboard, trips, trip creation/editing, destinations, analytics, profile and settings interfaces.
@@ -139,6 +141,7 @@ These are implemented endpoints, not a claim that every live workflow has been t
 | GET | `/api/destinations` | Featured destinations |
 | GET | `/api/destinations/photo?title=...` | External photo lookup |
 | GET / PUT / DELETE | `/api/profile` | Read/update profile or confirmed account deletion |
+| GET / POST / DELETE | `/api/favorites` | List, save, or remove the signed-in user's favorite destinations |
 | GET / POST | `/api/trips` | List/create trips |
 | GET | `/api/trips/stats` | Trip statistics |
 | GET / PUT / DELETE | `/api/trips/:id` | Read/update/delete an owned trip |
@@ -169,6 +172,10 @@ Additional handlers live in `server/src/routes/`, including day management, acti
 - `AI-USAGE.md`: AI assistance and authorship evidence.
 
 ## Verification
+
+Latest local results (September 30, 2026): `npm test` passed 48 tests with one opt-in database test skipped; `npm run build` passed the Vite production build and Prisma schema validation. The new HTTP checks cover JSON health/404 responses, authentication requirements, malformed and oversized request bodies, invalid trip input, cross-user trip read/delete rejection, and returned budget calculations. Authentication and database responses are stubbed in these checks: they do not prove live Supabase authorization or browser behavior.
+
+The October 2, 2026 `npm audit` check reported zero vulnerabilities across 309 installed dependencies. Re-run the audit before release because dependency advisories can change.
 
 ```bash
 npm run build -w client
@@ -209,13 +216,15 @@ These privacy-safe screenshots show the running application. The Week 2 image is
 - Map tiles need network access; pin accuracy depends on itinerary coordinates, and directions open in Google Maps.
 - Atlas is hidden; AI credentials/provider behavior are not verified.
 - External destination-photo lookup can fail; fallbacks are provided.
-- A September 26 dependency audit reports four high-severity advisories in Prisma's dependency tree. The two moderate Morgan/qs advisories were addressed with compatible lockfile updates. npm's suggested Prisma fix would downgrade the configured Prisma version, so that change was not forced and the remaining advisories need a compatibility review.
-- No current public deployment has been verified. Separate client/API Vercel deployment and live testing remain planned.
+- No known dependency advisories were reported by the October 2 audit. Recheck before deployment.
+- No public deployment is currently configured. Client/API hosting and live verification are planned for Week 3.
 - Additional screenshots of authenticated workflows will be added after their end-to-end verification.
+
+See [Deployment checklist](docs/DEPLOYMENT.md) for hosting preparation, environment configuration, and required live checks. No deployment has been performed by these local builds.
 
 ## AI credit
 
-Developed with substantial AI assistance for code, design, troubleshooting, tests and documentation. See [AI-USAGE.md](AI-USAGE.md) for the working evidence log, corrections and authorship status. Independently authored backend contributions are not yet verified.
+Developed with substantial assistance from OpenAI Codex and Google Antigravity for code, design, troubleshooting, tests and documentation. See [AI-USAGE.md](AI-USAGE.md) for the working evidence log, corrections and authorship status. A personal budget-summary contribution is identified there; the required 20% authorship threshold has not yet been established.
 
 Weekly reports, documentation submissions and personal reflections belong in the private class workspace; this public repository contains the application and required public documentation.
 

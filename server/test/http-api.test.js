@@ -17,6 +17,8 @@ globalThis.__smarttripPrisma = {
       return { count: 0 };
     },
   },
+  favorite: { findMany: unexpected, upsert: unexpected, delete: unexpected },
+  destination: { findUnique: unexpected },
   $transaction: async (operations) => Promise.all(operations),
 };
 const { default: app } = await import("../src/index.js");
@@ -85,5 +87,76 @@ test("Express HTTP contracts", async (t) => {
     assert.equal(budgetSummary.remainingBudget, 8500);
     assert.equal(budgetSummary.costPerTraveler, 750);
     lookup.mock.restore();
+  });
+
+  await t.test("Favorites endpoints", async (t) => {
+    // Unauthenticated request -> 401
+    assert.equal((await request("/api/favorites")).status, 401);
+
+    // Listing favorites -> only the signed-in user's records
+    const listMock = t.mock.method(prisma.favorite, "findMany", async ({ where }) => {
+      assert.equal(where.userId, "owner");
+      return [{ destinationId: 100 }];
+    });
+    const listRes = await request("/api/favorites", { headers });
+    assert.equal(listRes.status, 200);
+    assert.deepEqual(await listRes.json(), [{ destinationId: 100 }]);
+    listMock.mock.restore();
+
+    // Invalid destination ID -> 400
+    const invalidIdRes = await request("/api/favorites", { method: "POST", headers, body: JSON.stringify({ destinationId: "invalid" }) });
+    assert.equal(invalidIdRes.status, 400);
+
+    const zeroIdRes = await request("/api/favorites", { method: "POST", headers, body: JSON.stringify({ destinationId: -5 }) });
+    assert.equal(zeroIdRes.status, 400);
+
+    const invalidDelRes = await request("/api/favorites/invalid-id", { method: "DELETE", headers });
+    assert.equal(invalidDelRes.status, 400);
+
+    // Unknown destination -> 404
+    const destLookupMock = t.mock.method(prisma.destination, "findUnique", async ({ where }) => {
+      assert.equal(where.id, 999);
+      return null;
+    });
+    const unknownDestRes = await request("/api/favorites", { method: "POST", headers, body: JSON.stringify({ destinationId: 999 }) });
+    assert.equal(unknownDestRes.status, 404);
+    destLookupMock.mock.restore();
+
+    // Repeated saves -> same compound key; ignore a client-supplied user ID
+    const existingDestMock = t.mock.method(prisma.destination, "findUnique", async () => ({ id: 42, name: "Test" }));
+    const upsertMock = t.mock.method(prisma.favorite, "upsert", async ({ where, update, create }) => {
+      assert.deepEqual(where.userId_destinationId, { userId: "owner", destinationId: 42 });
+      assert.deepEqual(update, {});
+      assert.deepEqual(create, { userId: "owner", destinationId: 42 });
+      return { id: "fav-1", userId: "owner", destinationId: 42 };
+    });
+    const saveBody = JSON.stringify({ destinationId: 42, userId: "forged-user" });
+    const saveRes = await request("/api/favorites", { method: "POST", headers, body: saveBody });
+    const repeatedSaveRes = await request("/api/favorites", { method: "POST", headers, body: saveBody });
+    assert.equal(saveRes.status, 200);
+    assert.equal(repeatedSaveRes.status, 200);
+    assert.equal(upsertMock.mock.callCount(), 2);
+    upsertMock.mock.restore();
+    existingDestMock.mock.restore();
+
+    // Removing your own favorite -> succeeds
+    const deleteMock = t.mock.method(prisma.favorite, "delete", async ({ where }) => {
+      assert.deepEqual(where.userId_destinationId, { userId: "owner", destinationId: 42 });
+      return { count: 1 };
+    });
+    const delRes = await request("/api/favorites/42", { method: "DELETE", headers });
+    assert.equal(delRes.status, 204);
+    deleteMock.mock.restore();
+
+    // Attempting to remove someone else's favorite -> does not delete it
+    const deleteNotFoundMock = t.mock.method(prisma.favorite, "delete", async ({ where }) => {
+      assert.deepEqual(where.userId_destinationId, { userId: "owner", destinationId: 99 });
+      const err = new Error("Record to delete does not exist.");
+      err.code = "P2025";
+      throw err;
+    });
+    const delNotFoundRes = await request("/api/favorites/99", { method: "DELETE", headers });
+    assert.equal(delNotFoundRes.status, 404);
+    deleteNotFoundMock.mock.restore();
   });
 });
