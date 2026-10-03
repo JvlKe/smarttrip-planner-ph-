@@ -79,6 +79,58 @@ test("Express HTTP contracts", async (t) => {
     lookup.mock.restore();
     deletion.mock.restore();
   });
+  await t.test("adding an itinerary day appends after the latest saved day", async () => {
+    const appendedDate = new Date("2026-10-27T00:00:00.000Z");
+    let createdDay;
+    const transaction = t.mock.method(prisma, "$transaction", async (callback) =>
+      callback({
+        trip: {
+          updateMany: async ({ where, data }) => {
+            assert.deepEqual(where, { id: "append-trip", userId: "owner" });
+            assert.ok(data.updatedAt instanceof Date);
+            return { count: 1 };
+          },
+          findFirst: async ({ where }) => {
+            assert.deepEqual(where, { id: "append-trip", userId: "owner" });
+            return {
+              id: "append-trip",
+              startDate: new Date("2026-10-25T00:00:00.000Z"),
+              days: [
+                { dayNumber: 1, date: new Date("2026-10-25T00:00:00.000Z") },
+                { dayNumber: 2, date: new Date("2026-10-26T00:00:00.000Z") },
+              ],
+            };
+          },
+          update: async ({ where, data }) => {
+            assert.deepEqual(where, { id: "append-trip" });
+            assert.equal(data.endDate.getTime(), appendedDate.getTime());
+          },
+        },
+        itineraryDay: {
+          create: async ({ data }) => {
+            createdDay = { id: "day-3", ...data };
+            return createdDay;
+          },
+        },
+      }),
+    );
+    const response = await request("/api/itinerary/trips/append-trip/days", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({}),
+    });
+    assert.equal(response.status, 201);
+    assert.deepEqual(await response.json(), {
+      id: "day-3",
+      tripId: "append-trip",
+      dayNumber: 3,
+      date: "2026-10-27T00:00:00.000Z",
+      title: "Day 3",
+      position: 2,
+    });
+    assert.equal(createdDay.date.getTime(), appendedDate.getTime());
+    transaction.mock.restore();
+  });
   await t.test("shortening a trip cannot delete itinerary days without confirmation", async () => {
     const lookup = t.mock.method(prisma.trip, "findFirst", async ({ where }) => {
       assert.deepEqual(where, { id: "short-trip", userId: "owner" });

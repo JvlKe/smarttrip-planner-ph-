@@ -6,6 +6,7 @@ import { requireAuth } from "../middleware/auth.js";
 import { geocodeLocation, geocodePhilippinePlace } from "../lib/geocode.js";
 import { generateAiJson } from "../lib/ai.js";
 import { findScheduleConflict } from "../lib/scheduleConflicts.js";
+import { MAX_TRIP_DAYS, tripDayCount } from "../lib/tripDates.js";
 
 const router = Router();
 router.use(requireAuth);
@@ -162,31 +163,55 @@ function repeatsScheduledPlace(candidate, scheduled) {
 
 router.post("/trips/:tripId/days", async (req, res, next) => {
   try {
-    const trip = await tripOwned(req.params.tripId, req.user.id);
-    if (!trip) return res.status(404).json({ error: "Trip not found." });
-    if (trip.days.length >= 30)
+    const title =
+      typeof req.body?.title === "string" ? req.body.title.trim() : "";
+    const result = await prisma.$transaction(
+      async (tx) => {
+        // Lock the trip row before reading its days so rapid repeat requests
+        // cannot both choose the same (tripId, dayNumber).
+        const locked = await tx.trip.updateMany({
+          where: { id: req.params.tripId, userId: req.user.id },
+          data: { updatedAt: new Date() },
+        });
+        if (!locked.count) return { notFound: true };
+
+        const trip = await tx.trip.findFirst({
+          where: { id: req.params.tripId, userId: req.user.id },
+          include: { days: { orderBy: { dayNumber: "asc" } } },
+        });
+        if (!trip) return { notFound: true };
+
+        const last = trip.days.at(-1);
+        const dayNumber = (last?.dayNumber || 0) + 1;
+        const date = new Date(last?.date || trip.startDate);
+        if (last) date.setUTCDate(date.getUTCDate() + 1);
+        if (tripDayCount(trip.startDate, date) > MAX_TRIP_DAYS)
+          return { tooManyDays: true };
+
+        const day = await tx.itineraryDay.create({
+          data: {
+            tripId: trip.id,
+            dayNumber,
+            date,
+            title: title || `Day ${dayNumber}`,
+            position: last ? trip.days.length : 0,
+          },
+        });
+        await tx.trip.update({
+          where: { id: trip.id },
+          data: { endDate: date },
+        });
+        return { day };
+      },
+      { maxWait: 10000, timeout: 30000 },
+    );
+    if (result.notFound)
+      return res.status(404).json({ error: "Trip not found." });
+    if (result.tooManyDays)
       return res
         .status(400)
         .json({ error: "Trips can have a maximum of 30 days." });
-    const last = trip.days.at(-1);
-    const date = new Date(last?.date || trip.startDate);
-    if (last) date.setUTCDate(date.getUTCDate() + 1);
-    const [day] = await prisma.$transaction([
-      prisma.itineraryDay.create({
-        data: {
-          tripId: trip.id,
-          dayNumber: trip.days.length + 1,
-          date,
-          title: req.body.title?.trim() || `Day ${trip.days.length + 1}`,
-          position: trip.days.length,
-        },
-      }),
-      prisma.trip.update({
-        where: { id: trip.id },
-        data: { endDate: date },
-      }),
-    ]);
-    res.status(201).json(day);
+    res.status(201).json(result.day);
   } catch (e) {
     next(e);
   }
@@ -634,7 +659,10 @@ Return ONLY compact JSON: {"days":[{"title":"...","activities":[{"title":"...","
               }),
             ),
           });
-        await tx.trip.update({ where: { id: trip.id }, data: { status } });
+        await tx.trip.update({
+          where: { id: trip.id },
+          data: { status, planningMode: "AI" },
+        });
       },
       { maxWait: 10000, timeout: 60000 },
     );

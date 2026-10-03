@@ -277,6 +277,46 @@ export default function EditTrip() {
           </section>
           <section className="form-card">
             <div className="form-title">
+              <span>✦</span>
+              <div>
+                <h3>Planning mode</h3>
+                <p>Choose whether you want AI help or to plan each day yourself.</p>
+              </div>
+            </div>
+            <div className="plan-choice">
+              <label>
+                <input
+                  type="radio"
+                  name="planningMode"
+                  value="AI"
+                  checked={form.planningMode === "AI"}
+                  onChange={update}
+                />
+                <span>✦</span>
+                <b>AI-assisted</b>
+                <small>Generate an itinerary with AI from the trip page.</small>
+              </label>
+              <label>
+                <input
+                  type="radio"
+                  name="planningMode"
+                  value="MANUAL"
+                  checked={form.planningMode === "MANUAL"}
+                  onChange={update}
+                />
+                <span>✎</span>
+                <b>Manual</b>
+                <small>Build and edit your itinerary yourself.</small>
+              </label>
+            </div>
+            <p className="field-help">
+              Switching modes keeps your saved itinerary. Generating an AI plan
+              later replaces day titles, notes, activities, and alternatives
+              after confirmation.
+            </p>
+          </section>
+          <section className="form-card">
+            <div className="form-title">
               <span>⌖</span>
               <div>
                 <h3>Optional places to include</h3>

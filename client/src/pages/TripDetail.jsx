@@ -185,6 +185,7 @@ export default function TripDetail() {
     [alternativesOpen, setAlternativesOpen] = useState(false);
   const deleteTimer = useRef(null);
   const dayTabs = useRef(null);
+  const addingDay = useRef(false);
   const dayDrag = useRef({
     active: false,
     moved: false,
@@ -544,7 +545,9 @@ export default function TripDetail() {
     }
   }
   async function regenerate() {
-    if (!confirm("Replace the current itinerary with a new AI plan?")) return;
+    if (busy) return;
+    const confirmation = `${trip.planningMode === "MANUAL" ? "Generate an AI itinerary" : "Regenerate the AI itinerary"} for the full trip? This replaces all current day titles, notes, activities, and alternative places.`;
+    if (!window.confirm(confirmation)) return;
     setBusy(true);
     setRegenerating(true);
     setError("");
@@ -582,11 +585,12 @@ export default function TripDetail() {
     }
   }
   async function addDay() {
-    if (busy || editing || undoDelete) return;
+    if (busy || editing || undoDelete || addingDay.current) return;
     if (trip.days.length >= 30) {
       alert("Trips can have a maximum of 30 days.");
       return;
     }
+    addingDay.current = true;
     setBusy(true);
     setError("");
     try {
@@ -597,6 +601,7 @@ export default function TripDetail() {
     } catch (e) {
       setError(e.message);
     } finally {
+      addingDay.current = false;
       setBusy(false);
     }
   }
@@ -774,15 +779,15 @@ export default function TripDetail() {
             <button className="btn outline" onClick={shareTrip}>
               ↗ Share
             </button>
-            {trip.planningMode === "AI" && (
-              <button
-                className="btn outline"
-                onClick={regenerate}
-                disabled={busy}
-              >
-                ✦ Regenerate
-              </button>
-            )}
+            <button
+              className="btn outline"
+              onClick={regenerate}
+              disabled={busy}
+            >
+              {trip.planningMode === "AI"
+                ? "✦ Regenerate"
+                : "✦ Generate with AI"}
+            </button>
           </div>
         </div>
         <section className="trip-cover-editor destination-cover-fixed">
