@@ -1,7 +1,9 @@
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import PageHeader from "../components/PageHeader";
 import Icon from "../components/Icon";
 import useTrips from "../hooks/useTrips";
+import { api } from "../lib/api";
 import {
   peso,
   summarizeTrips,
@@ -11,7 +13,24 @@ import {
 } from "../lib/tripView";
 
 export default function AnalyticsPage() {
-  const { trips, loading, error, reload } = useTrips();
+  const { trips, loading: tripsLoading, error: tripsError, reload: reloadTrips } = useTrips();
+  const [serverAnalytics, setServerAnalytics] = useState(null);
+  const [analyticsLoading, setAnalyticsLoading] = useState(true);
+  const [analyticsError, setAnalyticsError] = useState(null);
+
+  const reloadAnalytics = () => {
+    setAnalyticsLoading(true);
+    setAnalyticsError(null);
+    api("/trips/analytics")
+      .then(setServerAnalytics)
+      .catch((e) => setAnalyticsError(e.message))
+      .finally(() => setAnalyticsLoading(false));
+  };
+
+  useEffect(() => {
+    reloadAnalytics();
+  }, []);
+
   const active = trips.filter(
     (t) => !["ARCHIVED", "CANCELLED"].includes(t.status),
   );
@@ -34,6 +53,11 @@ export default function AnalyticsPage() {
     (sum, t) => sum + (Number(t.travelers) || 1),
     0,
   );
+
+  const loading = tripsLoading || analyticsLoading;
+  const error = tripsError || analyticsError;
+  const reload = () => { reloadTrips(); reloadAnalytics(); };
+
   function download() {
     saveDownload(
       JSON.stringify(
@@ -41,6 +65,7 @@ export default function AnalyticsPage() {
           exportedAt: new Date().toISOString(),
           basis: "Planned budgets, not actual spending",
           summary: stats,
+          serverAnalytics,
           allocations,
           trips: active.map(
             ({ id, name, totalBudget, status, startDate, endDate }) => ({
@@ -157,6 +182,31 @@ export default function AnalyticsPage() {
                 </Link>
               </section>
             </div>
+            {serverAnalytics && serverAnalytics.monthly.length > 0 && (
+              <section className="raised-card analytics-panel">
+                <div className="section-heading">
+                  <h2>Monthly Trends</h2>
+                  <Icon name="calendar" />
+                </div>
+                <div className="budget-trip-list">
+                  {serverAnalytics.monthly.map((m) => {
+                    const [year, month] = m.month.split('-');
+                    const dateObj = new Date(year, month - 1);
+                    return (
+                      <div key={m.month} className="monthly-stat-row" style={{ display: 'flex', justifyContent: 'space-between', padding: '0.75rem 0', borderBottom: '1px solid var(--border)' }}>
+                        <span>
+                          <b>{dateObj.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}</b>
+                          <small style={{ display: 'block', color: 'var(--text-muted)' }}>
+                            {m.tripCount} trip{m.tripCount === 1 ? "" : "s"}
+                          </small>
+                        </span>
+                        <strong>{peso(m.plannedBudget)}</strong>
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
+            )}
             <section className="raised-card analytics-panel">
               <div className="section-heading">
                 <h2>Trip budgets</h2>

@@ -50,7 +50,8 @@ export async function api(path, options = {}) {
     const session = await getSession();
     const controller = new AbortController();
     const abort = () => controller.abort();
-    options.signal?.addEventListener("abort", abort, { once: true });
+    if (options.signal?.aborted) abort();
+    else options.signal?.addEventListener("abort", abort, { once: true });
     const timeout = setTimeout(abort, options.timeoutMs || 15000);
     const attempts = method === "GET" ? 2 : 1;
     try {

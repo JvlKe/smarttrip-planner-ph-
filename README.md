@@ -139,11 +139,13 @@ These are implemented endpoints, not a claim that every live workflow has been t
 | --- | --- | --- |
 | GET | `/api/health` | Service health |
 | GET | `/api/destinations` | Featured destinations |
+| GET | `/api/destinations/search` | Search destinations with optional text, region, interest, month, budget, trip-length, and pagination filters |
 | GET | `/api/destinations/photo?title=...` | External photo lookup |
 | GET / PUT / DELETE | `/api/profile` | Read/update profile or confirmed account deletion |
 | GET / POST / DELETE | `/api/favorites` | List, save, or remove the signed-in user's favorite destinations |
 | GET / POST | `/api/trips` | List/create trips |
 | GET | `/api/trips/stats` | Trip statistics |
+| GET | `/api/trips/analytics` | Monthly planned trip and budget totals for the signed-in user |
 | GET / PUT / DELETE | `/api/trips/:id` | Read/update/delete an owned trip |
 | POST | `/api/trips/:id/status` | Change trip status |
 | PATCH | `/api/trips/:id/budget` | Update budget |

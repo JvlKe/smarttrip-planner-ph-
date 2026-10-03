@@ -24,7 +24,8 @@ export default function CreateTrip() {
   const { profile } = useAuth();
   const [params] = useSearchParams();
   const [destinations, setDestinations] = useState([]),
-    [loadingPlaces, setLoadingPlaces] = useState(true),
+    [searchLoading, setSearchLoading] = useState(false),
+    [searchError, setSearchError] = useState(""),
     [busy, setBusy] = useState(false),
     [generationStage, setGenerationStage] = useState("saving"),
     [error, setError] = useState(""),
@@ -56,12 +57,59 @@ export default function CreateTrip() {
   const [destinationSearch, setDestinationSearch] = useState("");
   const [destinationPickerOpen, setDestinationPickerOpen] = useState(false);
   const [activeDestination, setActiveDestination] = useState(-1);
+  // The destination object shown in the preview panel and checklist
+  const [selectedDestination, setSelectedDestination] = useState(null);
+  // On mount, if a destination was saved in the draft, fetch its record so the
+  // preview panel shows the right place without requiring the user to re-type.
   useEffect(() => {
-    api("/destinations")
-      .then(setDestinations)
-      .catch((e) => setError(`Could not load destinations: ${e.message}`))
-      .finally(() => setLoadingPlaces(false));
+    const id = form.destinationId;
+    if (!id) return;
+    api(`/destinations/search?pageSize=50`)
+      .then((data) => {
+        const found = data.results?.find((d) => String(d.id) === String(id));
+        setSelectedDestination(found || null);
+      })
+      .catch(() => {});
+  // Only run once on mount
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+  // Debounced search: waits 300 ms after the user stops typing, then queries
+  // the server. Each effect owns an AbortController so an older response cannot
+  // replace results for a newer query.
+  useEffect(() => {
+    if (!destinationPickerOpen) return;
+    const query = destinationSearch.trim();
+    setSearchError("");
+    setSearchLoading(true);
+
+    const controller = new AbortController();
+
+    const timer = setTimeout(() => {
+      const searchParams = new URLSearchParams({ pageSize: "20" });
+      if (query) searchParams.set("q", query);
+      api(`/destinations/search?${searchParams}`, { signal: controller.signal })
+        .then((data) => {
+          if (!controller.signal.aborted)
+            setDestinations(data.results || []);
+        })
+        .catch((e) => {
+          // api() wraps aborts in a regular Error, so check this request's
+          // signal instead of relying on the error name.
+          if (!controller.signal.aborted) {
+            setSearchError(`Could not search destinations: ${e.message}`);
+          }
+        })
+        .finally(() => {
+          if (!controller.signal.aborted) setSearchLoading(false);
+        });
+    }, 300);
+
+    // Cleanup cancels both a pending debounce and any request already in flight.
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [destinationSearch, destinationPickerOpen]);
   useEffect(() => {
     if (savedTrip) return;
     setDraftStatus("Saving draft…");
@@ -149,20 +197,19 @@ export default function CreateTrip() {
     }
   }
   const locked = !!savedTrip;
-  const destination = destinations.find(
-    (d) => String(d.id) === String(form.destinationId),
-  );
-  const filteredDestinations = destinations.filter((place) =>
-    `${place.name} ${place.region}`
-      .toLocaleLowerCase()
-      .includes(destinationSearch.trim().toLocaleLowerCase()),
-  );
+  // After the user picks a place from the dropdown we store it as
+  // `selectedDestination` so the preview panel and checklist stay in sync.
+  const destination = selectedDestination;
+  // The dropdown list is whatever the last server search returned.
+  const filteredDestinations = destinations;
   function chooseDestination(place) {
     setForm((current) => ({ ...current, destinationId: String(place.id) }));
+    setSelectedDestination(place);
     setDestinationSearch("");
     setDestinationPickerOpen(false);
     setActiveDestination(-1);
   }
+
   function handleDestinationKeyDown(event) {
     if (event.key === "ArrowDown") {
       event.preventDefault();
@@ -274,11 +321,7 @@ export default function CreateTrip() {
                       }
                       aria-required="true"
                       autoComplete="off"
-                      placeholder={
-                        loadingPlaces
-                          ? "Loading destinations…"
-                          : "Search 20 destinations by name or region"
-                      }
+                      placeholder="Search destinations by name or region…"
                       value={
                         destinationPickerOpen
                           ? destinationSearch
@@ -297,18 +340,28 @@ export default function CreateTrip() {
                           ...current,
                           destinationId: "",
                         }));
+                        setSelectedDestination(null);
                       }}
                       onKeyDown={handleDestinationKeyDown}
-                      disabled={loadingPlaces || locked}
+                      disabled={locked}
                     />
-                    {destinationPickerOpen && !loadingPlaces && !locked && (
+                    {destinationPickerOpen && !locked && (
                       <div
                         className="destination-options"
                         id="destination-options"
                         role="listbox"
                         aria-label="Matching destinations"
+                        aria-busy={searchLoading}
                       >
-                        {filteredDestinations.length ? (
+                        {searchLoading ? (
+                          <p className="destination-no-results">
+                            Searching…
+                          </p>
+                        ) : searchError ? (
+                          <p className="destination-no-results" role="alert">
+                            {searchError}
+                          </p>
+                        ) : filteredDestinations.length ? (
                           filteredDestinations.map((place, index) => (
                             <div
                               className={`destination-option${index === activeDestination ? " active" : ""}`}
@@ -327,13 +380,16 @@ export default function CreateTrip() {
                           ))
                         ) : (
                           <p className="destination-no-results">
-                            No destinations match “{destinationSearch}”.
+                            {destinationSearch
+                              ? `No destinations match "${destinationSearch}".`
+                              : "Start typing to search destinations."}
                           </p>
                         )}
                       </div>
                     )}
                   </div>
                 </label>
+
                 <label>
                   Start date
                   <input

@@ -2,6 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
 import { computeBudgetSummary } from "../lib/budgetSummary.js";
+import { computeTripAnalytics } from "../lib/tripAnalytics.js";
 import { requireAuth } from "../middleware/auth.js";
 
 const router = Router();
@@ -136,6 +137,17 @@ router.get("/stats", async (req, res, next) => {
       destinations: new Set(rows.map((x) => x.destinationId).filter(Boolean))
         .size,
     });
+  } catch (e) {
+    next(e);
+  }
+});
+router.get("/analytics", async (req, res, next) => {
+  try {
+    const trips = await prisma.trip.findMany({
+      where: { userId: req.user.id, status: { notIn: ["ARCHIVED", "CANCELLED"] } },
+      select: { startDate: true, totalBudget: true },
+    });
+    res.json(computeTripAnalytics(trips));
   } catch (e) {
     next(e);
   }

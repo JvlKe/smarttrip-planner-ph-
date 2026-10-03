@@ -11,14 +11,14 @@ const unexpected = () => { throw new Error("Unexpected database access in HTTP t
 globalThis.__smarttripPrisma = {
   profile: { findUnique: unexpected },
   trip: {
-    findFirst: unexpected, delete: unexpected,
+    findFirst: unexpected, delete: unexpected, findMany: unexpected,
     updateMany: async ({ where }) => {
       assert.equal(where.userId, "owner");
       return { count: 0 };
     },
   },
   favorite: { findMany: unexpected, upsert: unexpected, delete: unexpected },
-  destination: { findUnique: unexpected },
+  destination: { findUnique: unexpected, findMany: unexpected, count: unexpected },
   $transaction: async (operations) => Promise.all(operations),
 };
 const { default: app } = await import("../src/index.js");
@@ -158,5 +158,216 @@ test("Express HTTP contracts", async (t) => {
     const delNotFoundRes = await request("/api/favorites/99", { method: "DELETE", headers });
     assert.equal(delNotFoundRes.status, 404);
     deleteNotFoundMock.mock.restore();
+  });
+
+  await t.test("Destination search endpoint", async (t) => {
+    // Helper: mock both count and findMany so a single search call can succeed
+    const mockSearch = (results = []) => ({
+      count: t.mock.method(prisma.destination, "count", async () => results.length),
+      findMany: t.mock.method(prisma.destination, "findMany", async () => results),
+    });
+
+    // No-auth: search is a public route, should work without credentials
+    const publicMocks = mockSearch([]);
+    const publicRes = await request("/api/destinations/search");
+    assert.equal(publicRes.status, 200);
+    publicMocks.count.mock.restore();
+    publicMocks.findMany.mock.restore();
+
+    // Empty search returns results and pagination shape
+    const emptyMocks = mockSearch([{ id: 1, name: "Palawan", region: "Mimaropa" }]);
+    const emptyRes = await request("/api/destinations/search");
+    assert.equal(emptyRes.status, 200);
+    const emptyBody = await emptyRes.json();
+    assert.ok(Array.isArray(emptyBody.results), "results should be an array");
+    assert.ok(emptyBody.pagination, "pagination object should be present");
+    assert.equal(emptyBody.pagination.total, 1);
+    assert.equal(emptyBody.pagination.page, 1);
+    emptyMocks.count.mock.restore();
+    emptyMocks.findMany.mock.restore();
+
+    // Text query q is forwarded to Prisma as a case-insensitive contains on name/region/description
+    const textCountMock = t.mock.method(prisma.destination, "count", async ({ where }) => {
+      assert.ok(where.OR, "text search should produce an OR clause");
+      assert.ok(
+        where.OR.some((c) => c.name?.contains === "Boracay"),
+        "name contains clause should match the query"
+      );
+      return 1;
+    });
+    const textFindMock = t.mock.method(prisma.destination, "findMany", async () =>
+      [{ id: 2, name: "Boracay", region: "Western Visayas" }]
+    );
+    const textRes = await request("/api/destinations/search?q=Boracay");
+    assert.equal(textRes.status, 200);
+    assert.equal(textCountMock.mock.callCount(), 1);
+    textCountMock.mock.restore();
+    textFindMock.mock.restore();
+
+    // Structured filters are mapped to the expected Prisma operators
+    const filtersCountMock = t.mock.method(
+      prisma.destination,
+      "count",
+      async ({ where }) => {
+        assert.deepEqual(where.region, {
+          contains: "Visayas",
+          mode: "insensitive",
+        });
+        assert.deepEqual(where.interests, { has: "Beach" });
+        assert.deepEqual(where.bestMonths, { has: "March" });
+        assert.deepEqual(where.suggestedDays, { gte: 2, lte: 4 });
+        return 0;
+      },
+    );
+    const filtersFindMock = t.mock.method(
+      prisma.destination,
+      "findMany",
+      async () => [],
+    );
+    const filtersRes = await request(
+      "/api/destinations/search?region=Visayas&interest=Beach&month=March&daysMin=2&daysMax=4",
+    );
+    assert.equal(filtersRes.status, 200);
+    filtersCountMock.mock.restore();
+    filtersFindMock.mock.restore();
+
+    // Valid budget range uses overlap logic
+    const budgetCountMock = t.mock.method(prisma.destination, "count", async ({ where }) => {
+      assert.equal(where.dailyBudgetMax.gte, 1000, "Should match destinations with max budget >= user's min");
+      assert.equal(where.dailyBudgetMin.lte, 5000, "Should match destinations with min budget <= user's max");
+      return 1;
+    });
+    const budgetFindMock = t.mock.method(prisma.destination, "findMany", async () =>
+      [{ id: 4, name: "Cebu", region: "Central Visayas" }]
+    );
+    const budgetRes = await request("/api/destinations/search?budgetMin=1000&budgetMax=5000");
+    assert.equal(budgetRes.status, 200);
+    assert.equal(budgetCountMock.mock.callCount(), 1);
+    budgetCountMock.mock.restore();
+    budgetFindMock.mock.restore();
+
+    // Invalid month name -> 400, no database access
+    const badMonthGuard = t.mock.method(prisma.destination, "count",
+      () => { throw new Error("should not reach DB for invalid month"); }
+    );
+    const badMonthRes = await request("/api/destinations/search?month=Octember");
+    assert.equal(badMonthRes.status, 400);
+    assert.equal(badMonthGuard.mock.callCount(), 0);
+    badMonthGuard.mock.restore();
+
+    // Negative budget -> 400, no database access
+    const badBudgetGuard = t.mock.method(prisma.destination, "count",
+      () => { throw new Error("should not reach DB for negative budget"); }
+    );
+    const badBudgetRes = await request("/api/destinations/search?budgetMin=-1");
+    assert.equal(badBudgetRes.status, 400);
+    assert.equal(badBudgetGuard.mock.callCount(), 0);
+    badBudgetGuard.mock.restore();
+
+    // budgetMin > budgetMax -> 400 (cross-field check), no database access
+    const flippedBudgetGuard = t.mock.method(prisma.destination, "count",
+      () => { throw new Error("should not reach DB for flipped budget range"); }
+    );
+    const flippedBudgetRes = await request("/api/destinations/search?budgetMin=5000&budgetMax=1000");
+    assert.equal(flippedBudgetRes.status, 400);
+    assert.equal(flippedBudgetGuard.mock.callCount(), 0);
+    flippedBudgetGuard.mock.restore();
+
+    // pageSize above cap (>50) -> 400, no database access
+    const oversizeGuard = t.mock.method(prisma.destination, "count",
+      () => { throw new Error("should not reach DB for oversized pageSize"); }
+    );
+    const oversizeRes = await request("/api/destinations/search?pageSize=999");
+    assert.equal(oversizeRes.status, 400);
+    assert.equal(oversizeGuard.mock.callCount(), 0);
+    oversizeGuard.mock.restore();
+
+    // Excessively deep pagination -> 400 before querying the database
+    const deepPageGuard = t.mock.method(prisma.destination, "count", () => {
+      throw new Error("should not reach DB for an excessive page offset");
+    });
+    const deepPageRes = await request(
+      "/api/destinations/search?page=10002&pageSize=20",
+    );
+    assert.equal(deepPageRes.status, 400);
+    assert.equal(deepPageGuard.mock.callCount(), 0);
+    deepPageGuard.mock.restore();
+
+    // daysMin > daysMax -> 400 (cross-field check), no database access
+    const flippedDaysGuard = t.mock.method(prisma.destination, "count",
+      () => { throw new Error("should not reach DB for flipped days range"); }
+    );
+    const flippedDaysRes = await request("/api/destinations/search?daysMin=10&daysMax=3");
+    assert.equal(flippedDaysRes.status, 400);
+    assert.equal(flippedDaysGuard.mock.callCount(), 0);
+    flippedDaysGuard.mock.restore();
+
+    // Pagination: page 2 with pageSize 1 returns correct page/totalPages
+    const pageMocks = mockSearch([{ id: 3, name: "Batanes", region: "Cagayan Valley" }]);
+    pageMocks.count.mock.restore();
+    pageMocks.findMany.mock.restore();
+    const pageCountMock = t.mock.method(prisma.destination, "count", async () => 5);
+    const pageFindMock = t.mock.method(
+      prisma.destination,
+      "findMany",
+      async ({ skip, take }) => {
+        assert.equal(skip, 1, "page 2 with pageSize 1 should skip one row");
+        assert.equal(take, 1, "pageSize should be passed to Prisma");
+        return [{ id: 3, name: "Batanes", region: "Cagayan Valley" }];
+      },
+    );
+    const pageRes = await request("/api/destinations/search?page=2&pageSize=1");
+    assert.equal(pageRes.status, 200);
+    const pageBody = await pageRes.json();
+    assert.equal(pageBody.pagination.page, 2);
+    assert.equal(pageBody.pagination.pageSize, 1);
+    assert.equal(pageBody.pagination.total, 5);
+    assert.equal(pageBody.pagination.totalPages, 5);
+    pageCountMock.mock.restore();
+    pageFindMock.mock.restore();
+  });
+
+  await t.test("Analytics endpoint", async (t) => {
+    // Unauthenticated request -> 401 (endpoint is protected)
+    assert.equal((await request("/api/trips/analytics")).status, 401);
+
+    // Authenticated request queries only the signed-in user's trips
+    // and excludes ARCHIVED and CANCELLED
+    const analyticsMock = t.mock.method(prisma.trip, "findMany", async ({ where, select }) => {
+      assert.equal(where.userId, "owner", "should scope to the authenticated user");
+      assert.deepEqual(
+        where.status,
+        { notIn: ["ARCHIVED", "CANCELLED"] },
+        "should exclude archived and cancelled trips"
+      );
+      assert.ok(select.startDate, "should select startDate");
+      assert.ok(select.totalBudget, "should select totalBudget");
+      return [
+        { startDate: new Date("2024-06-10T00:00:00Z"), totalBudget: "5000" },
+        { startDate: new Date("2024-06-20T00:00:00Z"), totalBudget: "3000" },
+        { startDate: new Date("2024-07-01T00:00:00Z"), totalBudget: "2000" },
+      ];
+    });
+
+    const res = await request("/api/trips/analytics", { headers });
+    assert.equal(res.status, 200);
+    const body = await res.json();
+
+    // Response shape
+    assert.equal(body.totalTrips, 3);
+    assert.equal(body.totalPlannedBudget, 10000);
+    assert.ok(Array.isArray(body.monthly), "monthly should be an array");
+
+    // Two months returned, sorted chronologically
+    assert.equal(body.monthly.length, 2);
+    assert.equal(body.monthly[0].month, "2024-06");
+    assert.equal(body.monthly[0].tripCount, 2);
+    assert.equal(body.monthly[0].plannedBudget, 8000);
+    assert.equal(body.monthly[1].month, "2024-07");
+    assert.equal(body.monthly[1].tripCount, 1);
+    assert.equal(body.monthly[1].plannedBudget, 2000);
+
+    assert.equal(analyticsMock.mock.callCount(), 1);
+    analyticsMock.mock.restore();
   });
 });

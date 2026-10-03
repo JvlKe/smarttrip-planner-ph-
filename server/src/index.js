@@ -12,6 +12,7 @@ import assistantRouter from "./routes/assistant.js";
 import travelRouter from "./routes/travel.js";
 import sharingRouter from "./routes/sharing.js";
 import favoritesRouter from "./routes/favorites.js";
+import destinationSearchRouter from "./routes/destinationSearch.js";
 import { rateLimit } from "./middleware/rateLimit.js";
 
 const app = express();
@@ -51,6 +52,9 @@ app.post("/api/client-errors", rateLimit({ max: 12 }), (req, res) => {
   console.warn(`[frontend] ${req.requestId} ${path}: ${message}`);
   res.status(204).end();
 });
+// Specific search route must be mounted before the generic /api/destinations
+// handler so Express resolves /api/destinations/search correctly.
+app.use("/api/destinations/search", destinationSearchRouter);
 app.get("/api/destinations", async (_req, res, next) => {
   try {
     if (
