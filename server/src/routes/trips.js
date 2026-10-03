@@ -3,11 +3,11 @@ import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
 import { computeBudgetSummary } from "../lib/budgetSummary.js";
 import { computeTripAnalytics } from "../lib/tripAnalytics.js";
+import { tripDates, tripDayCount, MAX_TRIP_DAYS } from "../lib/tripDates.js";
 import { requireAuth } from "../middleware/auth.js";
 
 const router = Router();
 router.use(requireAuth);
-const DAY_MS = 86400000;
 const statusRefreshes = new Map();
 const STATUS_REFRESH_MS = 60000;
 const tripSchema = z
@@ -32,7 +32,7 @@ const tripSchema = z
     message: "End date must be on or after the start date.",
     path: ["endDate"],
   })
-  .refine((v) => Math.floor((v.endDate - v.startDate) / DAY_MS) + 1 <= 30, {
+  .refine((v) => tripDayCount(v.startDate, v.endDate) <= MAX_TRIP_DAYS, {
     message: "Trips can be a maximum of 30 days.",
     path: ["endDate"],
   })
@@ -152,24 +152,88 @@ router.get("/analytics", async (req, res, next) => {
     next(e);
   }
 });
+const VALID_STATUSES = [
+  "DRAFT",
+  "PLANNING",
+  "UPCOMING",
+  "IN_PROGRESS",
+  "COMPLETED",
+  "CANCELLED",
+  "ARCHIVED",
+];
+const VALID_SORTS = ["UPDATED", "UPCOMING", "OLDEST"];
+const tripsQuerySchema = z.object({
+  q: z.string().trim().max(100).optional(),
+  status: z.enum(["ACTIVE", ...VALID_STATUSES]).optional(),
+  sort: z.enum(VALID_SORTS).default("UPDATED"),
+  page: z.coerce.number().int().min(1).max(10_000).default(1),
+  pageSize: z.coerce.number().int().min(1).max(50).default(20),
+});
+
 router.get("/", async (req, res, next) => {
   try {
+    const parsed = tripsQuerySchema.safeParse(req.query);
+    if (!parsed.success)
+      return res.status(400).json({ error: parsed.error.issues[0].message });
+
+    const { q, status, sort, page, pageSize } = parsed.data;
     await refreshStatuses(req.user.id);
-    res.json(
-      await prisma.trip.findMany({
-        where: { userId: req.user.id },
+
+    // Build the where clause — always constrained to the signed-in user
+    const where = { userId: req.user.id };
+
+    if (status === "ACTIVE") {
+      where.status = { not: "ARCHIVED" };
+    } else if (status) {
+      where.status = status;
+    }
+
+    if (q) {
+      where.OR = [
+        { name: { contains: q, mode: "insensitive" } },
+        { customLocation: { contains: q, mode: "insensitive" } },
+        { destination: { name: { contains: q, mode: "insensitive" } } },
+      ];
+    }
+
+    const orderBy =
+      sort === "UPCOMING"
+        ? [{ startDate: "asc" }, { id: "asc" }]
+        : sort === "OLDEST"
+          ? [{ createdAt: "asc" }, { id: "asc" }]
+          : [{ updatedAt: "desc" }, { id: "asc" }];
+
+    const skip = (page - 1) * pageSize;
+
+    const [total, trips] = await Promise.all([
+      prisma.trip.count({ where }),
+      prisma.trip.findMany({
+        where,
         include: {
           destination: true,
           budget: true,
           _count: { select: { days: true } },
         },
-        orderBy: { updatedAt: "desc" },
+        orderBy,
+        skip,
+        take: pageSize,
       }),
-    );
+    ]);
+
+    res.json({
+      trips,
+      pagination: {
+        total,
+        page,
+        pageSize,
+        totalPages: Math.ceil(total / pageSize),
+      },
+    });
   } catch (e) {
     next(e);
   }
 });
+
 router.post("/", async (req, res, next) => {
   try {
     const v = tripSchema.parse(req.body);
@@ -200,12 +264,12 @@ router.post("/", async (req, res, next) => {
           },
         });
         if (v.planningMode === "MANUAL") {
-          const count = Math.floor((v.endDate - v.startDate) / DAY_MS) + 1;
+          const dates = tripDates(v.startDate, v.endDate);
           await tx.itineraryDay.createMany({
-            data: Array.from({ length: count }, (_, i) => ({
+            data: dates.map((date, i) => ({
               tripId: trip.id,
               dayNumber: i + 1,
-              date: new Date(v.startDate.getTime() + i * DAY_MS),
+              date,
               title: `Day ${i + 1}`,
               position: i,
             })),
@@ -396,7 +460,8 @@ router.put("/:id", async (req, res, next) => {
     const existing = await owned(req.params.id, req.user.id);
     if (!existing) return res.status(404).json({ error: "Trip not found." });
     const v = tripSchema.parse(req.body);
-    const count = Math.floor((v.endDate - v.startDate) / DAY_MS) + 1;
+    const dates = tripDates(v.startDate, v.endDate);
+    const count = dates.length;
     await prisma.$transaction(
       async (tx) => {
         await tx.trip.update({
@@ -424,7 +489,7 @@ router.put("/:id", async (req, res, next) => {
         });
         for (let i = 0; i < count; i++) {
           const dayNumber = i + 1;
-          const date = new Date(v.startDate.getTime() + i * DAY_MS);
+          const date = dates[i];
           const found = current.find((d) => d.dayNumber === dayNumber);
           if (found)
             await tx.itineraryDay.update({

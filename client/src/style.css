@@ -3599,6 +3599,31 @@ aside nav a.active {
 .check-item button:hover {
   background: #fff0ef;
 }
+.check-item-actions {
+  display: inline-flex;
+  flex: 0 0 auto;
+  gap: 4px;
+}
+.check-item-actions .check-order-button,
+.check-item-actions .check-delete-button {
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--line);
+  color: var(--teal);
+}
+.check-item-actions .check-order-button:hover:not(:disabled) {
+  background: #e8f6f3;
+}
+.check-item-actions .check-order-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.42;
+}
+.check-item-actions .check-delete-button {
+  color: #a6382e;
+}
+.check-item-actions .check-delete-button:hover {
+  background: #fff0ef;
+}
 .tool-empty {
   padding: 18px;
   border: 1px dashed var(--line);
@@ -4024,6 +4049,9 @@ aside nav a.active {
 }
 [data-theme="dark"] .check-item button:hover {
   background: #4a2727;
+}
+[data-theme="dark"] .check-item-actions .check-order-button:hover:not(:disabled) {
+  background: #17383f;
 }
 [data-theme="dark"] .status {
   background: #123f35;

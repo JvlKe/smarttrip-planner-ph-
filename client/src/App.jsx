@@ -11,6 +11,7 @@ import AuthPage from "./pages/AuthPage";
 import { ForgotPassword, ResetPassword } from "./pages/PasswordRecovery";
 import AppBoundary from "./components/AppBoundary";
 import { api, reportClientError } from "./lib/api";
+import { fetchAllTrips } from "./lib/tripData";
 import ErrorPage from "./pages/ErrorPage";
 import Icon from "./components/Icon";
 import { profileDisplayName } from "./lib/profileName";
@@ -93,7 +94,7 @@ function DepartureNotifier() {
       Notification.permission !== "granted"
     )
       return;
-    api("/trips")
+    fetchAllTrips()
       .then((trips) => {
         const now = new Date();
         const soon = trips.find((t) => {

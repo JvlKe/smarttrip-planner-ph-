@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { api } from "../lib/api";
+import { fetchAllTrips } from "../lib/tripData";
 export default function useTrips() {
   const [trips, setTrips] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -8,8 +8,7 @@ export default function useTrips() {
     setLoading(true);
     setError("");
     try {
-      const data = await api("/trips");
-      setTrips(Array.isArray(data) ? data.filter(Boolean) : []);
+      setTrips(await fetchAllTrips());
     } catch (e) {
       setError(e.message);
     } finally {

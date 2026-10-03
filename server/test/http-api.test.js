@@ -17,6 +17,9 @@ globalThis.__smarttripPrisma = {
       return { count: 0 };
     },
   },
+  itineraryDay: { findFirst: unexpected },
+  activity: { findMany: unexpected, create: unexpected },
+  checklistItem: { update: unexpected, findMany: unexpected },
   favorite: { findMany: unexpected, upsert: unexpected, delete: unexpected },
   destination: { findUnique: unexpected, findMany: unexpected, count: unexpected },
   $transaction: async (operations) => Promise.all(operations),
@@ -369,5 +372,112 @@ test("Express HTTP contracts", async (t) => {
 
     assert.equal(analyticsMock.mock.callCount(), 1);
     analyticsMock.mock.restore();
+  });
+
+  await t.test("schedule conflicts block activity creation before writing", async (t) => {
+    const dayLookup = t.mock.method(prisma.itineraryDay, "findFirst", async ({ where }) => {
+      assert.deepEqual(where, { id: "day-1", trip: { userId: "owner" } });
+      return { id: "day-1", trip: { destination: { name: "Baguio" } } };
+    });
+    const existingActivities = t.mock.method(prisma.activity, "findMany", async ({ where }) => {
+      assert.deepEqual(where, { dayId: "day-1" });
+      return [{ id: "existing", title: "Museum", startTime: "10:00", durationMin: 90 }];
+    });
+    const create = t.mock.method(prisma.activity, "create", async () => {
+      throw new Error("A conflicting activity must not be written.");
+    });
+
+    const response = await request("/api/itinerary/days/day-1/activities", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        title: "Lunch",
+        category: "Food",
+        startTime: "10:30",
+        durationMin: 60,
+        position: 1,
+        latitude: 16.4,
+        longitude: 120.6,
+      }),
+    });
+    assert.equal(response.status, 409);
+    assert.match((await response.json()).error, /Museum/);
+    assert.equal(create.mock.callCount(), 0);
+    dayLookup.mock.restore();
+    existingActivities.mock.restore();
+    create.mock.restore();
+  });
+
+  await t.test("checklist reorder validates ownership and writes one ordered transaction", async (t) => {
+    const firstId = "11111111-1111-4111-8111-111111111111";
+    const secondId = "22222222-2222-4222-8222-222222222222";
+    const tripLookup = t.mock.method(prisma.trip, "findFirst", async ({ where }) => {
+      assert.deepEqual(where, { id: "owned-trip", userId: "owner" });
+      return {
+        id: "owned-trip",
+        checklist: [
+          { id: firstId, label: "Tickets", position: 0 },
+          { id: secondId, label: "ID", position: 1 },
+        ],
+      };
+    });
+    const updates = t.mock.method(prisma.checklistItem, "update", async ({ where, data }) => ({
+      id: where.id,
+      position: data.position,
+    }));
+    const transaction = t.mock.method(prisma, "$transaction", async (operations) =>
+      Promise.all(operations),
+    );
+    const list = t.mock.method(prisma.checklistItem, "findMany", async ({ where, orderBy }) => {
+      assert.deepEqual(where, { tripId: "owned-trip" });
+      assert.deepEqual(orderBy, { position: "asc" });
+      return [
+        { id: secondId, label: "ID", position: 0 },
+        { id: firstId, label: "Tickets", position: 1 },
+      ];
+    });
+
+    const response = await request("/api/travel/owned-trip/checklist/reorder", {
+      method: "PUT",
+      headers,
+      body: JSON.stringify({ orderedIds: [secondId, firstId] }),
+    });
+    assert.equal(response.status, 200);
+    assert.deepEqual((await response.json()).map((item) => item.id), [secondId, firstId]);
+    assert.equal(updates.mock.callCount(), 2);
+    assert.equal(transaction.mock.callCount(), 1);
+
+    const invalid = await request("/api/travel/owned-trip/checklist/reorder", {
+      method: "PUT",
+      headers,
+      body: JSON.stringify({ orderedIds: [firstId, firstId] }),
+    });
+    assert.equal(invalid.status, 400);
+    assert.equal(transaction.mock.callCount(), 1);
+    tripLookup.mock.restore();
+    updates.mock.restore();
+    transaction.mock.restore();
+    list.mock.restore();
+  });
+
+  await t.test("packing suggestions are trip-specific and omit existing checklist items", async (t) => {
+    const tripLookup = t.mock.method(prisma.trip, "findFirst", async ({ where }) => {
+      assert.deepEqual(where, { id: "owned-trip", userId: "owner" });
+      return {
+        id: "owned-trip",
+        startDate: new Date("2026-10-03T00:00:00.000Z"),
+        endDate: new Date("2026-10-07T00:00:00.000Z"),
+        transportMode: "PRIVATE_VEHICLE",
+        interests: ["Beach"],
+        checklist: [{ label: "government-issued ID and booking confirmations" }],
+      };
+    });
+    const response = await request("/api/travel/owned-trip/packing-suggestions", { headers });
+    assert.equal(response.status, 200);
+    const { suggestions } = await response.json();
+    assert.ok(suggestions.some((item) => item.includes("Spare tire")));
+    assert.ok(suggestions.some((item) => item.includes("Swimwear")));
+    assert.ok(!suggestions.some((item) => item.toLowerCase().includes("government-issued id")));
+    tripLookup.mock.restore();
   });
 });

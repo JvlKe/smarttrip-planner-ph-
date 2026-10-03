@@ -5,6 +5,7 @@ import { startingPointFor } from "../lib/startingPoint.js";
 import { requireAuth } from "../middleware/auth.js";
 import { geocodeLocation, geocodePhilippinePlace } from "../lib/geocode.js";
 import { generateAiJson } from "../lib/ai.js";
+import { findScheduleConflict } from "../lib/scheduleConflicts.js";
 
 const router = Router();
 router.use(requireAuth);
@@ -218,6 +219,10 @@ router.post("/days/:dayId/activities", async (req, res, next) => {
     const day = await dayOwned(req.params.dayId, req.user.id);
     if (!day) return res.status(404).json({ error: "Day not found." });
     const v = await withCoordinates(activity.parse(req.body), day.trip);
+    const dayActivities = await prisma.activity.findMany({ where: { dayId: day.id } });
+    const conflict = findScheduleConflict(v, dayActivities);
+    if (conflict)
+      return res.status(409).json({ error: `Schedule conflict with "${conflict.title}".` });
     res
       .status(201)
       .json(await prisma.activity.create({ data: { ...v, dayId: day.id } }));
@@ -243,6 +248,10 @@ router.put("/activities/:id", async (req, res, next) => {
       parsed.longitude = null;
     }
     const value = await withCoordinates(parsed, found.day.trip);
+    const editDayActivities = await prisma.activity.findMany({ where: { dayId: found.dayId } });
+    const editConflict = findScheduleConflict({ id: found.id, ...value }, editDayActivities);
+    if (editConflict)
+      return res.status(409).json({ error: `Schedule conflict with "${editConflict.title}".` });
     res.json(
       await prisma.activity.update({
         where: { id: found.id },
@@ -270,6 +279,10 @@ router.post("/activities/:id/duplicate", async (req, res, next) => {
       _max: { position: true },
     });
     const { id, dayId, day, ...copy } = found;
+    const dupDayActivities = await prisma.activity.findMany({ where: { dayId: targetDayId } });
+    const dupConflict = findScheduleConflict(copy, dupDayActivities);
+    if (dupConflict)
+      return res.status(409).json({ error: `Schedule conflict with "${dupConflict.title}".` });
     res.status(201).json(
       await prisma.activity.create({
         data: {
@@ -300,6 +313,10 @@ router.post("/activities/:id/move", async (req, res, next) => {
       where: { dayId: targetDayId },
       _max: { position: true },
     });
+    const moveDayActivities = await prisma.activity.findMany({ where: { dayId: targetDayId } });
+    const moveConflict = findScheduleConflict(found, moveDayActivities);
+    if (moveConflict)
+      return res.status(409).json({ error: `Schedule conflict with "${moveConflict.title}".` });
     res.json(
       await prisma.activity.update({
         where: { id: found.id },
@@ -520,6 +537,16 @@ Return ONLY compact JSON: {"days":[{"title":"...","activities":[{"title":"...","
         priority: "OPTIONAL",
       }),
     );
+    for (const day of prepared) {
+      const schedule = [];
+      for (const act of day.activities) {
+        const conflict = findScheduleConflict(act, schedule);
+        if (conflict) {
+          return res.status(400).json({ error: `Generated schedule conflict: "${act.title}" overlaps with "${conflict.title}". Please try generating again.` });
+        }
+        schedule.push(act);
+      }
+    }
     await verifyGeneratedCoordinates(
       prepared.flatMap((value) => value.activities),
       trip,
@@ -656,6 +683,10 @@ Preserve good activities unless the requested change requires replacing them. Ne
         repeatsScheduledPlace(parsedActivity, activities)
       )
         continue;
+      const conflict = findScheduleConflict(parsedActivity, activities);
+      if (conflict) {
+        return res.status(400).json({ error: `Improved schedule conflict: "${parsedActivity.title}" overlaps with "${conflict.title}". Please try again.` });
+      }
       activities.push(parsedActivity);
     }
     if (!activities.length)

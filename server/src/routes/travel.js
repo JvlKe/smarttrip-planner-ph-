@@ -2,6 +2,8 @@ import { Router } from "express";
 import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
 import { startingPointFor } from "../lib/startingPoint.js";
+import { tripDayCount } from "../lib/tripDates.js";
+import { buildPackingSuggestions } from "../lib/packingSuggestions.js";
 import { requireAuth } from "../middleware/auth.js";
 
 const router = Router();
@@ -15,27 +17,6 @@ const owned = (id, userId) =>
       checklist: { orderBy: { position: "asc" } },
     },
   });
-const packingFor = (trip) => [
-  ...new Set([
-    "Government ID and booking confirmations",
-    "Reusable water bottle",
-    "Phone charger and power bank",
-    "Basic medicines and first-aid kit",
-    "Sunscreen and insect repellent",
-    "Light rain jacket or umbrella",
-    ...(trip.interests.includes("Beach") || trip.interests.includes("Diving")
-      ? ["Swimwear, dry bag, and reef-safe sunscreen"]
-      : []),
-    ...(trip.interests.includes("Nature") ||
-    trip.interests.includes("Adventure")
-      ? ["Comfortable trail shoes and quick-dry clothes"]
-      : []),
-    ...(trip.transportMode === "PRIVATE_VEHICLE"
-      ? ["Driver’s license, vehicle papers, spare tire, and emergency tools"]
-      : ["Small cash and stored-value transit card where available"]),
-  ]),
-];
-
 router.get("/:id", async (req, res, next) => {
   try {
     const trip = await owned(req.params.id, req.user.id);
@@ -43,13 +24,12 @@ router.get("/:id", async (req, res, next) => {
     const today = new Date();
     const start = new Date(trip.startDate);
     const end = new Date(trip.endDate);
+    // Use UTC midnight for startOfToday so the comparison is timezone-safe
     const startOfToday = new Date(
-      today.getFullYear(),
-      today.getMonth(),
-      today.getDate(),
+      Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()),
     );
     const daysUntil = Math.max(0, Math.ceil((start - startOfToday) / 86400000));
-    const durationDays = Math.max(1, Math.floor((end - start) / 86400000) + 1);
+    const durationDays = Math.max(1, tripDayCount(start, end));
     const phase =
       end < startOfToday
         ? "COMPLETED"
@@ -80,7 +60,14 @@ router.get("/:id", async (req, res, next) => {
           "Download tickets, IDs, contacts, and the itinerary for offline access.",
         ],
       },
-      packing: packingFor(trip),
+      packing: buildPackingSuggestions(
+        {
+          durationDays,
+          transportMode: trip.transportMode,
+          interests: trip.interests,
+        },
+        trip.checklist.map((item) => item.label),
+      ),
       emergency: [
         { label: "National emergency", number: "911", href: "tel:911" },
         {
@@ -149,4 +136,84 @@ router.delete("/checklist/:itemId", async (req, res, next) => {
     next(e);
   }
 });
+// Activity 2: Reorder checklist items for a trip in a single transaction.
+// The client sends an ordered array of item IDs. The endpoint verifies that
+// every ID belongs to this trip and that no IDs are missing or duplicated,
+// then updates all positions atomically so a failed write cannot leave the
+// list in a half-updated state.
+router.put("/:id/checklist/reorder", async (req, res, next) => {
+  try {
+    const trip = await owned(req.params.id, req.user.id);
+    if (!trip) return res.status(404).json({ error: "Trip not found." });
+
+    const { orderedIds } = z
+      .object({ orderedIds: z.array(z.string().uuid()).min(1) })
+      .parse(req.body);
+
+    // Verify that the submitted IDs exactly match the checklist for this trip
+    const tripItemIds = new Set(trip.checklist.map((item) => item.id));
+    const submittedSet = new Set(orderedIds);
+
+    if (submittedSet.size !== orderedIds.length)
+      return res.status(400).json({ error: "Duplicate IDs are not allowed." });
+
+    if (
+      submittedSet.size !== tripItemIds.size ||
+      [...submittedSet].some((id) => !tripItemIds.has(id))
+    )
+      return res
+        .status(400)
+        .json({ error: "Submitted IDs do not match this trip's checklist." });
+
+    // Update every item's position in one transaction so the list is never
+    // left in a partial state if something goes wrong mid-way.
+    await prisma.$transaction(
+      orderedIds.map((itemId, index) =>
+        prisma.checklistItem.update({
+          where: { id: itemId },
+          data: { position: index },
+        }),
+      ),
+    );
+
+    // Return the full updated checklist in the new order
+    const updated = await prisma.checklistItem.findMany({
+      where: { tripId: trip.id },
+      orderBy: { position: "asc" },
+    });
+    res.json(updated);
+  } catch (e) {
+    if (e instanceof z.ZodError)
+      return res.status(400).json({ error: e.issues[0]?.message });
+    next(e);
+  }
+});
+
+// Activity 3: Return context-aware packing suggestions for one trip.
+// The helper compares the trip's length, transport mode, and interests to
+// a set of pre-defined rules and returns items the user has NOT already added
+// to their checklist. Nothing is saved; the user decides what to add.
+router.get("/:id/packing-suggestions", async (req, res, next) => {
+  try {
+    const trip = await owned(req.params.id, req.user.id);
+    if (!trip) return res.status(404).json({ error: "Trip not found." });
+
+    const durationDays = Math.max(
+      1,
+      tripDayCount(new Date(trip.startDate), new Date(trip.endDate)),
+    );
+
+    const existingLabels = trip.checklist.map((item) => item.label);
+
+    const suggestions = buildPackingSuggestions(
+      { durationDays, transportMode: trip.transportMode, interests: trip.interests },
+      existingLabels,
+    );
+
+    res.json({ suggestions });
+  } catch (e) {
+    next(e);
+  }
+});
+
 export default router;

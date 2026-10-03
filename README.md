@@ -10,6 +10,7 @@ Week 3 hardening and deployment preparation are in progress. Week 2 work was rec
 
 - Public landing, sign-in, registration and recovery interfaces.
 - Dashboard, trips, trip creation/editing, destinations, analytics, profile and settings interfaces.
+- My Trips supports server-side text search, status filters, sorting and pagination.
 - Responsive desktop/mobile navigation and light/dark themes.
 - Twenty curated destinations, with selected locally stored landmark photos and unavailable-photo fallbacks.
 - Cubao, Quezon City is the default trip starting point; travelers can replace it with a local or international location in Profile.
@@ -138,25 +139,43 @@ These are implemented endpoints, not a claim that every live workflow has been t
 | Method | Path | Purpose |
 | --- | --- | --- |
 | GET | `/api/health` | Service health |
+| POST | `/api/client-errors` | Rate-limited frontend error reporting |
 | GET | `/api/destinations` | Featured destinations |
 | GET | `/api/destinations/search` | Search destinations with optional text, region, interest, month, budget, trip-length, and pagination filters |
 | GET | `/api/destinations/photo?title=...` | External photo lookup |
 | GET / PUT / DELETE | `/api/profile` | Read/update profile or confirmed account deletion |
 | GET / POST / DELETE | `/api/favorites` | List, save, or remove the signed-in user's favorite destinations |
-| GET / POST | `/api/trips` | List/create trips |
+| GET / POST | `/api/trips` | List/create trips; listing supports `q`, `status`, `sort`, `page` and `pageSize` filters and returns pagination metadata |
 | GET | `/api/trips/stats` | Trip statistics |
 | GET | `/api/trips/analytics` | Monthly planned trip and budget totals for the signed-in user |
 | GET / PUT / DELETE | `/api/trips/:id` | Read/update/delete an owned trip |
 | POST | `/api/trips/:id/status` | Change trip status |
+| POST | `/api/trips/:id/duplicate` | Duplicate an owned trip |
 | PATCH | `/api/trips/:id/budget` | Update budget |
+| PATCH | `/api/trips/:id/base` | Update trip accommodation/base details |
+| PATCH | `/api/trips/:id/cover` | Update the trip cover |
 | POST | `/api/itinerary/trips/:tripId/days` | Add itinerary day |
+| PUT / DELETE | `/api/itinerary/days/:dayId` | Update/delete an itinerary day |
 | POST | `/api/itinerary/days/:dayId/activities` | Add activity |
 | PUT / DELETE | `/api/itinerary/activities/:id` | Edit/delete activity |
+| POST | `/api/itinerary/activities/:id/duplicate` | Duplicate an activity within the trip |
+| POST | `/api/itinerary/activities/:id/move` | Move an activity to another day in the same trip |
+| PATCH | `/api/itinerary/activities/:id/reorder` | Reorder an activity within its day |
+| PATCH | `/api/itinerary/activities/:id/state` | Mark an activity planned, visited, or skipped |
+| POST | `/api/itinerary/alternatives/:id/add` | Add a suggested alternative to the itinerary |
+| POST | `/api/itinerary/trips/:tripId/refresh-locations` | Refresh itinerary location coordinates |
+| POST | `/api/itinerary/trips/:tripId/generate` | Generate an itinerary for a trip |
+| POST | `/api/itinerary/trips/:tripId/improve` | Improve one itinerary day |
 | GET | `/api/travel/:id` | Trip travel toolkit |
+| POST | `/api/travel/:id/checklist` | Add a checklist item |
+| PATCH / DELETE | `/api/travel/checklist/:itemId` | Update or delete a checklist item |
+| PUT | `/api/travel/:id/checklist/reorder` | Reorder an owned trip's checklist items |
+| GET | `/api/travel/:id/packing-suggestions` | Get trip-specific packing suggestions not already on the checklist |
 | GET | `/api/share/:token` | Read shared trip |
 | POST / DELETE | `/api/share/trips/:id` | Create/revoke sharing |
+| POST | `/api/assistant/chat` | Ask the travel assistant |
 
-Additional handlers live in `server/src/routes/`, including day management, activity ordering, checklists and AI integrations. Auth registration, login and recovery use Supabase rather than custom Express login endpoints.
+Auth registration, login and recovery use Supabase rather than custom Express login endpoints. Unknown API paths return a JSON 404 response.
 
 ## Project structure
 
@@ -175,7 +194,7 @@ Additional handlers live in `server/src/routes/`, including day management, acti
 
 ## Verification
 
-Latest local results (September 30, 2026): `npm test` passed 48 tests with one opt-in database test skipped; `npm run build` passed the Vite production build and Prisma schema validation. The new HTTP checks cover JSON health/404 responses, authentication requirements, malformed and oversized request bodies, invalid trip input, cross-user trip read/delete rejection, and returned budget calculations. Authentication and database responses are stubbed in these checks: they do not prove live Supabase authorization or browser behavior.
+Latest local results (October 3, 2026): all server test files were run individually because the aggregate `npm test` runner could not spawn its worker processes in this environment (`EPERM`). The individual runs reported 90 passing checks and one opt-in database flow skipped. HTTP tests include schedule-conflict rejection, checklist reorder validation/transaction use, and owner-scoped packing suggestions; database calls are mocked, so these checks do not prove live Supabase behavior. The combined Vite client production build and Prisma schema validation passed. Live browser/database workflows still need verification.
 
 The October 2, 2026 `npm audit` check reported zero vulnerabilities across 309 installed dependencies. Re-run the audit before release because dependency advisories can change.
 
@@ -226,7 +245,7 @@ See [Deployment checklist](docs/DEPLOYMENT.md) for hosting preparation, environm
 
 ## AI credit
 
-Developed with substantial assistance from OpenAI Codex and Google Antigravity for code, design, troubleshooting, tests and documentation. See [AI-USAGE.md](AI-USAGE.md) for the working evidence log, corrections and authorship status. A personal budget-summary contribution is identified there; the required 20% authorship threshold has not yet been established.
+Developed with substantial assistance from OpenAI Codex and Google Antigravity for code, design, troubleshooting, tests and documentation. See [AI-USAGE.md](AI-USAGE.md) for the working evidence log, corrections, backend authorship contributions and current estimate. The required 20% authorship threshold has not yet been established.
 
 Weekly reports, documentation submissions and personal reflections belong in the private class workspace; this public repository contains the application and required public documentation.
 

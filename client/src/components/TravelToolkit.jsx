@@ -9,11 +9,14 @@ export default function TravelToolkit({ tripId }) {
   const [category, setCategory] = useState("General");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  async function load() {
+  async function load({ clearError = true } = {}) {
     try {
-      setError("");
-      const result = await api(`/travel/${tripId}`);
-      setData(result);
+      if (clearError) setError("");
+      const [result, packing] = await Promise.all([
+        api(`/travel/${tripId}`),
+        api(`/travel/${tripId}/packing-suggestions`).catch(() => null),
+      ]);
+      setData({ ...result, packing: packing?.suggestions ?? result.packing });
     } catch (e) {
       setError(e.message);
     }
@@ -58,6 +61,7 @@ export default function TravelToolkit({ tripId }) {
       await load();
     } catch (e) {
       setError(e.message);
+      await load({ clearError: false });
     } finally {
       setBusy(false);
     }
@@ -78,7 +82,7 @@ export default function TravelToolkit({ tripId }) {
       });
     } catch (e) {
       setError(e.message);
-      await load();
+      await load({ clearError: false });
     }
   }
   async function remove(id) {
@@ -90,6 +94,27 @@ export default function TravelToolkit({ tripId }) {
       }));
     } catch (e) {
       setError(e.message);
+    }
+  }
+  async function reorder(index, direction) {
+    if (busy) return;
+    const next = [...data.checklist];
+    const target = index + direction;
+    if (target < 0 || target >= next.length) return;
+    [next[index], next[target]] = [next[target], next[index]];
+
+    setBusy(true);
+    try {
+      const checklist = await api(`/travel/${tripId}/checklist/reorder`, {
+        method: "PUT",
+        body: JSON.stringify({ orderedIds: next.map((item) => item.id) }),
+      });
+      setData((current) => ({ ...current, checklist }));
+    } catch (e) {
+      setError(e.message);
+      await load({ clearError: false });
+    } finally {
+      setBusy(false);
     }
   }
   if (!data && !error)
@@ -257,7 +282,7 @@ export default function TravelToolkit({ tripId }) {
                 Nothing here yet. Add a task or import the packing guide.
               </p>
             )}
-            {data.checklist.map((item) => (
+            {data.checklist.map((item, index) => (
               <div
                 className={`check-item ${item.completed ? "completed" : ""}`}
                 key={item.id}
@@ -273,13 +298,34 @@ export default function TravelToolkit({ tripId }) {
                     <small>{item.category}</small>
                   </span>
                 </label>
-                <button
-                  aria-label={`Delete ${item.label}`}
-                  title="Delete item"
-                  onClick={() => remove(item.id)}
-                >
-                  ×
-                </button>
+                <div className="check-item-actions">
+                  <button
+                    className="check-order-button"
+                    aria-label={`Move ${item.label} up`}
+                    title="Move up"
+                    disabled={busy || index === 0}
+                    onClick={() => reorder(index, -1)}
+                  >
+                    ↑
+                  </button>
+                  <button
+                    className="check-order-button"
+                    aria-label={`Move ${item.label} down`}
+                    title="Move down"
+                    disabled={busy || index === total - 1}
+                    onClick={() => reorder(index, 1)}
+                  >
+                    ↓
+                  </button>
+                  <button
+                    className="check-delete-button"
+                    aria-label={`Delete ${item.label}`}
+                    title="Delete item"
+                    onClick={() => remove(item.id)}
+                  >
+                    ×
+                  </button>
+                </div>
               </div>
             ))}
           </div>
