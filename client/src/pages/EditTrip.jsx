@@ -1,6 +1,18 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { api } from "../lib/api";
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+function daysAfterNewTripEnd(trip, form) {
+  if (!trip) return [];
+  const start = Date.parse(`${form.startDate}T00:00:00Z`);
+  const end = Date.parse(`${form.endDate}T00:00:00Z`);
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end < start)
+    return [];
+  const dayCount = Math.floor((end - start) / DAY_MS) + 1;
+  return (trip.days || []).filter((day) => day.dayNumber > dayCount);
+}
+
 const interests = [
   "Beach",
   "Nature",
@@ -22,9 +34,11 @@ export default function EditTrip() {
     [error, setError] = useState(""),
     [saveStatus, setSaveStatus] = useState("Saved");
   const skipAutosave = useRef(true);
+  const persistedTrip = useRef(null);
   useEffect(() => {
     Promise.all([api("/destinations"), api(`/trips/${id}`)])
       .then(([places, t]) => {
+        persistedTrip.current = t;
         setDestinations(places);
         const serverForm = {
           name: t.name,
@@ -77,10 +91,17 @@ export default function EditTrip() {
       setSaveStatus("Draft kept — complete required fields");
       return;
     }
+    const removedDays = daysAfterNewTripEnd(persistedTrip.current, form);
+    if (removedDays.length) {
+      setSaveStatus(
+        `Date change ready — save to confirm removing ${removedDays.length} itinerary day(s)`,
+      );
+      return;
+    }
     setSaveStatus("Saving…");
     const timer = setTimeout(async () => {
       try {
-        await api(`/trips/${id}`, {
+        persistedTrip.current = await api(`/trips/${id}`, {
           method: "PUT",
           body: JSON.stringify(payload(form)),
         });
@@ -108,9 +129,30 @@ export default function EditTrip() {
     setBusy(true);
     setError("");
     try {
+      const removedDays = daysAfterNewTripEnd(persistedTrip.current, form);
+      let confirmDeleteDays = false;
+      if (removedDays.length) {
+        const removedActivities = removedDays.reduce(
+          (total, day) => total + (day.activities?.length || 0),
+          0,
+        );
+        const activityText = removedActivities
+          ? ` and ${removedActivities} scheduled activit${removedActivities === 1 ? "y" : "ies"}`
+          : "";
+        if (
+          !window.confirm(
+            `Shortening this trip will remove ${removedDays.length} itinerary day(s)${activityText} beyond the new dates. Continue?`,
+          )
+        )
+          return;
+        confirmDeleteDays = true;
+      }
       await api(`/trips/${id}`, {
         method: "PUT",
-        body: JSON.stringify(payload(form)),
+        body: JSON.stringify({
+          ...payload(form),
+          ...(confirmDeleteDays ? { confirmDeleteDays: true } : {}),
+        }),
       });
       localStorage.removeItem(`smarttrip-edit-draft-${id}`);
       nav(`/app/trips/${id}`);

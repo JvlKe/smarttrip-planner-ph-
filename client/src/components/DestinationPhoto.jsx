@@ -25,7 +25,7 @@ const articleBySlug = {
 };
 
 const memory = new Map();
-const localPhotos = {
+const curatedPhotos = {
   "davao-samal": "/assets/samal-pearl-farm.jpg",
   baguio: "/assets/baguio-burnham-park-small.jpg",
   cebu: "/assets/cebu-magellans-cross.jpg",
@@ -33,13 +33,18 @@ const localPhotos = {
   boracay: "/assets/boracay-white-beach.jpg",
   batanes: "/assets/batanes-rolling-hills.jpg",
   siargao: "/assets/siargao-island.jpg",
+  // Use the Commons file directly so Vigan does not depend on a dynamic lookup.
+  vigan:
+    "https://upload.wikimedia.org/wikipedia/commons/thumb/1/12/Calle_Crisologo_in_Vigan_City.JPG/960px-Calle_Crisologo_in_Vigan_City.JPG",
 };
 const localDescriptions = {
   "davao-samal": "Island coastline at Pearl Farm, Samal Island, Davao",
   baguio: "Swan boats on Burnham Park Lake in Baguio",
   cebu: "Magellan's Cross beneath the painted pavilion ceiling in Cebu",
+  vigan: "Calle Crisologo heritage street in Vigan, Ilocos Sur",
 };
-const isScenicPhoto = (url) => !/(?:logo|seal[_%\s-]|flag[_%\s-]|coat[_%\s-]|\.svg)/i.test(url);
+const isScenicPhoto = (url) =>
+  !/(?:logo|seal[_%\s-]|flag[_%\s-]|coat[_%\s-]|\.svg)/i.test(url);
 
 function destinationArticle(trip) {
   return (
@@ -92,7 +97,9 @@ export default function DestinationPhoto({
 }) {
   const article = destinationArticle(trip);
   const suppliedPhoto = trip?.destination?.imageUrl || "";
-  const fixedPhoto = localPhotos[trip?.destination?.slug] || (isScenicPhoto(suppliedPhoto) ? suppliedPhoto : "");
+  const fixedPhoto =
+    curatedPhotos[trip?.destination?.slug] ||
+    (isScenicPhoto(suppliedPhoto) ? suppliedPhoto : "");
   const [src, setSrc] = useState(fixedPhoto);
   const [triedResolvedPhoto, setTriedResolvedPhoto] = useState(!fixedPhoto);
 

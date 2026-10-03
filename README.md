@@ -6,7 +6,7 @@ SmartTrip Planner PH helps travelers organize Philippine destinations, trip date
 
 ## Current milestone
 
-Week 3 hardening and deployment preparation are in progress. Week 2 work was recorded September 24–26, 2026. This is not a finished production release.
+Week 3 hardening is deployed on Vercel for demonstration. The main trip-creation and AI itinerary generation/regeneration flows have been exercised by the user, but this is not a fully verified production release. Week 2 work was recorded September 24–26, 2026.
 
 - Public landing, sign-in, registration and recovery interfaces.
 - Dashboard, trips, trip creation/editing, destinations, analytics, profile and settings interfaces.
@@ -16,13 +16,13 @@ Week 3 hardening and deployment preparation are in progress. Week 2 work was rec
 - Cubao, Quezon City is the default trip starting point; travelers can replace it with a local or international location in Profile.
 - Supabase authentication integration and API profile creation.
 - Interactive trip maps are enabled for Week 2 verification, with itinerary pins, day filters, map/list views, GeoJSON export and Google Maps directions when coordinates are available.
-- Atlas is not exposed in the interface. AI configuration and verification remain pending.
+- Atlas is not exposed in the interface. The user confirmed AI itinerary generation and regeneration in the deployed app; other assistant/provider behavior is not claimed as verified.
 
 Implemented screens and API handlers are not equivalent to fully verified user flows.
 
 ## Stack
 
-React and Vite; Node.js and Express; Prisma and PostgreSQL; Supabase authentication; Leaflet/OpenStreetMap for the map preview. AI integration code is retained but live provider functionality is not claimed complete.
+React and Vite; Node.js and Express; Prisma and PostgreSQL; Supabase authentication; Leaflet/OpenStreetMap for the map preview. AI-assisted itinerary generation and regeneration are available; other assistant/provider behavior remains unverified.
 
 ## Application routes
 
@@ -46,7 +46,7 @@ All `/app` routes require a signed-in session; unauthenticated visitors are redi
 | `/app` | Dashboard | Trip summaries, quick actions and empty states |
 | `/app/trips` | My Trips | Listing, search and filtering interface |
 | `/app/create` | Create Trip | Destination, dates, travelers, starting point and budget |
-| `/app/trips/:id` | Trip details | Itinerary, activities, budget and trip actions |
+| `/app/trips/:id` | Trip details | Itinerary, activities, budget, add/remove day controls and trip actions |
 | `/app/trips/:id/edit` | Edit Trip | Existing-trip editing form |
 | `/app/destinations` | Destinations | Discovery cards, search and interest filters |
 | `/app/map` | Travel Map | Trip pins, day filtering, map/list views, GeoJSON pin export and Google Maps directions; availability depends on coordinates and network access |
@@ -194,9 +194,9 @@ Auth registration, login and recovery use Supabase rather than custom Express lo
 
 ## Verification
 
-Latest local results (October 3, 2026): all server test files were run individually because the aggregate `npm test` runner could not spawn its worker processes in this environment (`EPERM`). The individual runs reported 90 passing checks and one opt-in database flow skipped. HTTP tests include schedule-conflict rejection, checklist reorder validation/transaction use, and owner-scoped packing suggestions; database calls are mocked, so these checks do not prove live Supabase behavior. The combined Vite client production build and Prisma schema validation passed. Live browser/database workflows still need verification.
+Latest local checks (October 4, 2026): `npm run build` passed (Vite production build and Prisma schema validation). The default `npm test -w server` runner hits `spawn EPERM` in this environment, but this workaround passed **93 tests with 1 opt-in database test skipped**: `npm test -w server -- --test-isolation=none --test-concurrency=1`. HTTP tests use mocked database/auth services and do not prove live Supabase behavior. The October 4 itinerary-day changes still need a targeted live check.
 
-The October 2, 2026 `npm audit` check reported zero vulnerabilities across 309 installed dependencies. Re-run the audit before release because dependency advisories can change.
+The October 4, 2026 `npm audit` check reported zero vulnerabilities. Re-run the audit before the final release/submission because dependency advisories can change.
 
 ```bash
 npm run build -w client
@@ -204,7 +204,13 @@ npm test
 npm run build
 ```
 
-The full build also runs Prisma schema validation and requires server database environment variables. It does not deploy the application or prove live workflows.
+If Node's test runner cannot spawn workers in a restricted Windows environment, run the server tests without test-file isolation:
+
+```bash
+npm test -w server -- --test-isolation=none --test-concurrency=1
+```
+
+The full build also runs Prisma schema validation. It does not deploy the application or prove live workflows.
 
 Recorded results (September 26, 2026):
 - The recorded pre-integration `npm test` run passed all 40 server tests. The opt-in database test is skipped during the default run.
@@ -232,20 +238,20 @@ These privacy-safe screenshots show the running application. The Week 2 image is
 
 ## Known limitations and next steps
 
-- Full registration, confirmation, recovery and session-flow verification remains pending.
-- Authenticated browser/API trip creation, editing, and ownership checks remain to be tested end to end. The database-backed check covers Prisma writes and budget calculations only. Analytics, sharing and exports also need end-to-end tests.
+- Full registration, email confirmation, recovery and session-flow verification remains pending.
+- The user confirmed trip creation and AI itinerary generation/regeneration in the deployed browser. Add/remove-day persistence and end-date consistency, trip editing, and cross-account ownership checks still need a final live verification. Analytics, sharing and exports also need end-to-end checks.
 - Map tiles need network access; pin accuracy depends on itinerary coordinates, and directions open in Google Maps.
-- Atlas is hidden; AI credentials/provider behavior are not verified.
+- Atlas is hidden; assistant chat and provider-fallback behavior are not verified.
 - External destination-photo lookup can fail; fallbacks are provided.
-- No known dependency advisories were reported by the October 2 audit. Recheck before deployment.
-- No public deployment is currently configured. Client/API hosting and live verification are planned for Week 3.
+- The October 4 dependency audit reported zero vulnerabilities; recheck before release because advisories can change.
+- The client is deployed at [smarttrip-planner-ph.vercel.app](https://smarttrip-planner-ph.vercel.app/) and the API at [smarttrip-planner-ph-api.vercel.app](https://smarttrip-planner-ph-api.vercel.app/). The API health endpoint previously returned `{"status":"ok","service":"smarttrip-api"}`; health alone does not verify database connectivity, authorization, or every live workflow. See [Deployment and live verification](docs/DEPLOYMENT.md).
 - Additional screenshots of authenticated workflows will be added after their end-to-end verification.
 
-See [Deployment checklist](docs/DEPLOYMENT.md) for hosting preparation, environment configuration, and required live checks. No deployment has been performed by these local builds.
+See [Deployment and live verification](docs/DEPLOYMENT.md) for deployed URLs, environment guidance, and remaining live checks. The local build commands above do not deploy the application.
 
 ## AI credit
 
-Developed with substantial assistance from OpenAI Codex and Google Antigravity for code, design, troubleshooting, tests and documentation. See [AI-USAGE.md](AI-USAGE.md) for the working evidence log, corrections, backend authorship contributions and current estimate. The required 20% authorship threshold has not yet been established.
+Developed with substantial assistance from OpenAI Codex and Google Antigravity for code, design, troubleshooting, tests and documentation. See [AI-USAGE.md](AI-USAGE.md) for the working evidence log, corrections and backend authorship contributions. Its October 3 percentage is a historical rough estimate, not a current verified count; the 20% threshold has not yet been established.
 
 Weekly reports, documentation submissions and personal reflections belong in the private class workspace; this public repository contains the application and required public documentation.
 
@@ -255,6 +261,7 @@ Weekly reports, documentation submissions and personal reflections belong in the
 - Baguio: Patrickroque01, [Burnham Park Lake](https://commons.wikimedia.org/wiki/File:Burnham_Park_Lake_(Baguio_City;_12-04-2022).jpg), [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/).
 - Cebu: Joshua Lim (Sky Harbor), [Magellan's Cross](https://commons.wikimedia.org/wiki/File:Magellan%27s_Cross_full.jpg), [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/).
 - These three photographs are displayed with responsive CSS cropping; Baguio and Cebu use Wikimedia thumbnails. Original photographs remain under their respective licenses.
+- Vigan: Captaincid, [Calle Crisologo in Vigan City](https://commons.wikimedia.org/wiki/File:Calle_Crisologo_in_Vigan_City.JPG), [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/). The card uses a Wikimedia thumbnail directly because the page-image lookup did not reliably return one.
 
 - Boracay: Choi2451, [White beach on Boracay island](https://commons.wikimedia.org/wiki/File:White_beach_on_boracay_island.jpg)
 - Batanes: Johnkevinreglos, [Vayang Rolling Hills, Batanes, Philippines](https://commons.wikimedia.org/wiki/File:Vayang_Rolling_Hills,_Batanes,_Philippines.jpg)

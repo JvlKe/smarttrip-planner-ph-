@@ -1,27 +1,22 @@
 import { Router } from "express";
 import { prisma } from "../lib/prisma.js";
+import {
+  publicSharedTripSelect,
+  toPublicSharedTrip,
+} from "../lib/publicSharedTrip.js";
 import { requireAuth } from "../middleware/auth.js";
 const router = Router();
-const publicInclude = {
-  destination: true,
-  budget: true,
-  days: {
-    orderBy: { position: "asc" },
-    include: { activities: { orderBy: { position: "asc" } } },
-  },
-};
 router.get("/:token", async (req, res, next) => {
   try {
     const link = await prisma.shareLink.findFirst({
       where: { token: req.params.token, active: true },
-      include: { trip: { include: publicInclude } },
+      select: { trip: { select: publicSharedTripSelect } },
     });
     if (!link)
       return res
         .status(404)
         .json({ error: "This shared trip is unavailable." });
-    const { userId, notes, ...safeTrip } = link.trip;
-    res.json(safeTrip);
+    res.json(toPublicSharedTrip(link.trip));
   } catch (e) {
     next(e);
   }

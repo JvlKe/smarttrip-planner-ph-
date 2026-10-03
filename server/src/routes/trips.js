@@ -462,6 +462,13 @@ router.put("/:id", async (req, res, next) => {
     const v = tripSchema.parse(req.body);
     const dates = tripDates(v.startDate, v.endDate);
     const count = dates.length;
+    const daysBeingRemoved = (existing.days || []).filter(
+      (day) => day.dayNumber > count,
+    );
+    if (daysBeingRemoved.length && req.body?.confirmDeleteDays !== true)
+      return res.status(409).json({
+        error: `Shortening this trip will remove ${daysBeingRemoved.length} itinerary day(s). Save again after confirming the removal.`,
+      });
     await prisma.$transaction(
       async (tx) => {
         await tx.trip.update({

@@ -112,10 +112,14 @@ app.get("/api/destinations/photo", async (req, res, next) => {
     const result = await response.json();
     const photoUrl =
       Object.values(result?.query?.pages || {})[0]?.thumbnail?.source || "";
-    destinationPhotoCache.set(title, photoUrl);
+    // Do not keep a temporary/missing result for a full day; a later lookup
+    // may succeed when Wikipedia has a thumbnail or its API is available again.
+    if (photoUrl) destinationPhotoCache.set(title, photoUrl);
     res.set(
       "Cache-Control",
-      "public, max-age=86400, stale-while-revalidate=604800",
+      photoUrl
+        ? "public, max-age=86400, stale-while-revalidate=604800"
+        : "public, max-age=60, stale-while-revalidate=300",
     );
     res.json({ photoUrl });
   } catch (error) {

@@ -21,6 +21,7 @@ globalThis.__smarttripPrisma = {
   activity: { findMany: unexpected, create: unexpected },
   checklistItem: { update: unexpected, findMany: unexpected },
   favorite: { findMany: unexpected, upsert: unexpected, delete: unexpected },
+  shareLink: { findFirst: unexpected, upsert: unexpected, updateMany: unexpected },
   destination: { findUnique: unexpected, findMany: unexpected, count: unexpected },
   $transaction: async (operations) => Promise.all(operations),
 };
@@ -78,6 +79,44 @@ test("Express HTTP contracts", async (t) => {
     lookup.mock.restore();
     deletion.mock.restore();
   });
+  await t.test("shortening a trip cannot delete itinerary days without confirmation", async () => {
+    const lookup = t.mock.method(prisma.trip, "findFirst", async ({ where }) => {
+      assert.deepEqual(where, { id: "short-trip", userId: "owner" });
+      return {
+        id: "short-trip",
+        travelers: 1,
+        totalBudget: "10000",
+        days: [
+          { dayNumber: 1, activities: [] },
+          { dayNumber: 2, activities: [{ id: "activity-2" }] },
+        ],
+      };
+    });
+    const transaction = t.mock.method(prisma, "$transaction", async () => {
+      throw new Error("A shrinking trip must be confirmed before any write.");
+    });
+    const response = await request("/api/trips/short-trip", {
+      method: "PUT",
+      headers,
+      body: JSON.stringify({
+        name: "Weekend",
+        destinationId: 1,
+        startDate: "2026-11-01",
+        endDate: "2026-11-01",
+        travelers: 1,
+        totalBudget: 10000,
+        travelStyle: "MID_RANGE",
+        planningMode: "AI",
+        transportMode: "PUBLIC_TRANSPORT",
+        interests: [],
+      }),
+    });
+    assert.equal(response.status, 409);
+    assert.match((await response.json()).error, /remove 1 itinerary day/);
+    assert.equal(transaction.mock.callCount(), 0);
+    lookup.mock.restore();
+    transaction.mock.restore();
+  });
   await t.test("trip response calculates budget from stored activities", async () => {
     const lookup = t.mock.method(prisma.trip, "findFirst", async () => ({
       id: "owned-trip", totalBudget: "10000", travelers: 2,
@@ -90,6 +129,82 @@ test("Express HTTP contracts", async (t) => {
     assert.equal(budgetSummary.remainingBudget, 8500);
     assert.equal(budgetSummary.costPerTraveler, 750);
     lookup.mock.restore();
+  });
+
+  await t.test("shared trip endpoint allowlists public fields", async () => {
+    const privateTrip = {
+      id: "trip-id",
+      userId: "owner",
+      name: "Cebu weekend",
+      customLocation: null,
+      startDate: "2026-11-01",
+      endDate: "2026-11-02",
+      travelers: 2,
+      totalBudget: "10000",
+      notes: "private trip note",
+      baseAddress: "private lodging address",
+      destination: { name: "Cebu", latitude: 10, longitude: 123 },
+      days: [{
+        id: "day-id",
+        dayNumber: 1,
+        title: "Arrival",
+        notes: "private day note",
+        activities: [{
+          id: "activity-id",
+          title: "Museum",
+          description: "Visit the museum",
+          startTime: "09:00",
+          location: "Cebu City",
+          estimatedCost: "500",
+          notes: "private booking details",
+          phone: "private phone",
+        }],
+      }],
+    };
+    const lookup = t.mock.method(prisma.shareLink, "findFirst", async ({ where, select }) => {
+      assert.deepEqual(where, { token: "share-token", active: true });
+      assert.ok(select.trip.select.days.select.activities.select);
+      return { trip: privateTrip };
+    });
+    const response = await request("/api/share/share-token");
+    assert.equal(response.status, 200);
+    const result = await response.json();
+    assert.equal(result.baseAddress, undefined);
+    assert.equal(result.notes, undefined);
+    assert.equal(result.userId, undefined);
+    assert.equal(result.days[0].notes, undefined);
+    assert.equal(result.days[0].activities[0].phone, undefined);
+    assert.equal(result.days[0].activities[0].notes, undefined);
+    assert.deepEqual(result.destination, { name: "Cebu" });
+    lookup.mock.restore();
+  });
+
+  await t.test("empty destination photo results are not cached for a day", async () => {
+    const originalFetch = globalThis.fetch;
+    let lookups = 0;
+    const fetchMock = t.mock.method(globalThis, "fetch", async (input, options) => {
+      if (String(input).startsWith("https://en.wikipedia.org/w/api.php?")) {
+        lookups += 1;
+        const result = lookups === 1
+          ? { query: { pages: { "1": { title: "Photo lookup test" } } } }
+          : { query: { pages: { "1": { thumbnail: { source: "https://images.example.test/vigan.jpg" } } } } };
+        return new Response(JSON.stringify(result), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        });
+      }
+      return originalFetch(input, options);
+    });
+
+    const first = await request("/api/destinations/photo?title=Photo%20lookup%20test");
+    assert.deepEqual(await first.json(), { photoUrl: "" });
+    assert.match(first.headers.get("cache-control"), /max-age=60/);
+    const second = await request("/api/destinations/photo?title=Photo%20lookup%20test");
+    assert.deepEqual(await second.json(), {
+      photoUrl: "https://images.example.test/vigan.jpg",
+    });
+    assert.equal(lookups, 2);
+    fetchMock.mock.restore();
   });
 
   await t.test("Favorites endpoints", async (t) => {
