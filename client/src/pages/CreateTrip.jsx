@@ -589,7 +589,7 @@ export default function CreateTrip() {
               <span aria-live="polite">✓ {draftStatus}</span>
               <button
                 className="btn primary big"
-                disabled={busy || loadingPlaces}
+                disabled={busy}
               >
                 {busy
                   ? "Please wait…"
