@@ -37,7 +37,7 @@ export default function TripsPage() {
   // Reset page when filter or sort changes
   useEffect(() => { setPage(1); }, [filter, sort]);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (signal) => {
     setLoading(true);
     setError("");
     try {
@@ -49,7 +49,7 @@ export default function TripsPage() {
       if (debouncedQuery) qs.set("q", debouncedQuery);
       if (filter !== "ALL") qs.set("status", filter);
 
-      const result = await api(`/trips?${qs}`);
+      const result = await api(`/trips?${qs}`, { signal });
       // Handle both old array shape (fallback) and new { trips, pagination } shape
       if (Array.isArray(result)) {
         setTrips(result.filter(Boolean));
@@ -67,13 +67,17 @@ export default function TripsPage() {
         setPagination(nextPagination);
       }
     } catch (e) {
-      setError(e.message);
+      if (!signal?.aborted) setError(e.message);
     } finally {
-      setLoading(false);
+      if (!signal?.aborted) setLoading(false);
     }
   }, [debouncedQuery, filter, sort, page]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    const controller = new AbortController();
+    load(controller.signal);
+    return () => controller.abort();
+  }, [load]);
 
   async function remove(id) {
     const trip = trips.find((t) => t.id === id);
@@ -106,20 +110,35 @@ export default function TripsPage() {
       RESTORE: "restore this trip",
     };
     if (!confirm(`Are you sure you want to ${labels[act]}?`)) return;
-    await api(`/trips/${trip.id}/status`, {
-      method: "POST",
-      body: JSON.stringify({ action: act }),
-    });
-    await load();
+    try {
+      await api(`/trips/${trip.id}/status`, {
+        method: "POST",
+        body: JSON.stringify({ action: act }),
+      });
+      await load();
+    } catch (e) {
+      setError(e.message);
+    }
   }
 
   async function duplicate(trip) {
-    await api(`/trips/${trip.id}/duplicate`, { method: "POST" });
-    await load();
+    try {
+      await api(`/trips/${trip.id}/duplicate`, { method: "POST" });
+      await load();
+    } catch (e) {
+      setError(e.message);
+    }
   }
 
   const countdown = (t) => {
-    const days = Math.ceil((new Date(t.startDate) - new Date()) / 86400000);
+    const [year, month, day] = String(t.startDate)
+      .slice(0, 10)
+      .split("-")
+      .map(Number);
+    const startDay = Date.UTC(year, month - 1, day);
+    const now = new Date();
+    const today = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+    const days = Math.round((startDay - today) / 86400000);
     return days < 0
       ? null
       : days === 0
@@ -194,7 +213,7 @@ export default function TripsPage() {
           <section className="section-failure">
             <b>Unable to load your trips.</b>
             <p>{error}</p>
-            <button onClick={load}>Try again</button>
+            <button onClick={() => load()}>Try again</button>
           </section>
         ) : trips.length ? (
           <>

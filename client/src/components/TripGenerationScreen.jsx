@@ -7,8 +7,14 @@ const GENERATION_MESSAGES = [
   "Finalizing budget estimates and travel notes",
 ];
 
-export default function TripGenerationScreen({ stage, tripName, destination }) {
+export default function TripGenerationScreen({
+  stage,
+  tripName,
+  destination,
+  mode = "create",
+}) {
   const [elapsed, setElapsed] = useState(0);
+  const isRegeneration = mode === "regenerate";
 
   useEffect(() => {
     const startedAt = Date.now();
@@ -32,7 +38,9 @@ export default function TripGenerationScreen({ stage, tripName, destination }) {
     ? "Saving your trip details"
     : isFinishing
       ? "Your itinerary is almost ready"
-      : rotatingMessage;
+      : isRegeneration
+        ? "Regenerating your itinerary"
+        : rotatingMessage;
 
   return (
     <div
@@ -43,7 +51,11 @@ export default function TripGenerationScreen({ stage, tripName, destination }) {
       aria-label={title}
     >
       <section className="trip-generation-card">
-        <p className="generation-eyebrow">Building your SmartTrip</p>
+        <p className="generation-eyebrow">
+          {isRegeneration
+            ? "Regenerating your SmartTrip"
+            : "Building your SmartTrip"}
+        </p>
         <div className="generation-route" aria-hidden="true">
           <span className="generation-route-line" />
           <span className="generation-route-dot start" />
@@ -60,19 +72,28 @@ export default function TripGenerationScreen({ stage, tripName, destination }) {
         </div>
         <ol className="generation-steps" aria-label="Generation progress">
           <li className={isSaving ? "active" : "done"}>
-            <span>{isSaving ? "1" : "✓"}</span> Save trip details
+            <span>{isSaving ? "1" : "✓"}</span>{" "}
+            {isRegeneration ? "Use saved trip details" : "Save trip details"}
           </li>
-          <li className={!isSaving && !isFinishing ? "active" : isFinishing ? "done" : ""}>
-            <span>{isFinishing ? "✓" : "2"}</span> Create itinerary
+          <li
+            className={
+              !isSaving && !isFinishing ? "active" : isFinishing ? "done" : ""
+            }
+          >
+            <span>{isFinishing ? "✓" : "2"}</span>{" "}
+            {isRegeneration ? "Regenerate itinerary" : "Create itinerary"}
           </li>
           <li className={isFinishing ? "active" : ""}>
-            <span>3</span> Open your plan
+            <span>3</span>{" "}
+            {isRegeneration ? "Refresh your plan" : "Open your plan"}
           </li>
         </ol>
         <p className="generation-reassurance">
           {isSaving
             ? "Keep this tab open while we safely save your trip."
-            : "Your trip details are saved. AI planning can take about a minute, so please keep this tab open."}
+            : isRegeneration
+              ? "Your trip details are saved. We’re preparing a fresh itinerary; please keep this tab open."
+              : "Your trip details are saved. AI planning can take about a minute, so please keep this tab open."}
         </p>
         <small>{elapsed < 5 ? "Getting everything ready" : `${elapsed} seconds elapsed`}</small>
       </section>

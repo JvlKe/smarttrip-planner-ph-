@@ -581,6 +581,50 @@ export default function TripDetail() {
       setBusy(false);
     }
   }
+  async function addDay() {
+    if (busy || editing || undoDelete) return;
+    if (trip.days.length >= 30) {
+      alert("Trips can have a maximum of 30 days.");
+      return;
+    }
+    setBusy(true);
+    setError("");
+    try {
+      await api(`/itinerary/trips/${id}/days`, { method: "POST" });
+      const updated = await api(`/trips/${id}`);
+      setTrip(updated);
+      setSelected(updated.days.length - 1);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function removeLastDay() {
+    if (busy || editing || undoDelete) return;
+    if (trip.days.length <= 1) {
+      alert("A trip must have at least one day.");
+      return;
+    }
+    const lastDay = trip.days[trip.days.length - 1];
+    if (lastDay.activities?.length > 0) {
+      if (!window.confirm(`Day ${lastDay.dayNumber} has ${lastDay.activities.length} activity(ies). Removing this day will also delete its activities. Are you sure?`)) return;
+    }
+    setBusy(true);
+    setError("");
+    try {
+      await api(`/itinerary/days/${lastDay.id}`, { method: "DELETE" });
+      const updated = await api(`/trips/${id}`);
+      setTrip(updated);
+      setSelected((prev) => Math.min(prev, updated.days.length - 1));
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   if (error && !trip)
     return (
       <div className="empty-state">
@@ -685,6 +729,7 @@ export default function TripDetail() {
       {regenerating && (
         <TripGenerationScreen
           stage="generating"
+          mode="regenerate"
           tripName={trip.name}
           destination={trip.destination?.name || trip.customLocation}
         />
@@ -960,6 +1005,22 @@ export default function TripDetail() {
               <option value="TRANSPORTATION">Transportation</option>
             </select>
           </label>
+          <div className="day-management-controls">
+            <button
+              className="btn outline small"
+              onClick={addDay}
+              disabled={busy || editing || undoDelete || trip.days.length >= 30}
+            >
+              + Add day
+            </button>
+            <button
+              className="btn outline small"
+              onClick={removeLastDay}
+              disabled={busy || editing || undoDelete || trip.days.length <= 1}
+            >
+              - Remove last day
+            </button>
+          </div>
         </div>
         <div className="itinerary-grid">
           <section className="timeline-card">

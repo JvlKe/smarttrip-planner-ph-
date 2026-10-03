@@ -171,15 +171,21 @@ router.post("/trips/:tripId/days", async (req, res, next) => {
     const last = trip.days.at(-1);
     const date = new Date(last?.date || trip.startDate);
     if (last) date.setUTCDate(date.getUTCDate() + 1);
-    const day = await prisma.itineraryDay.create({
-      data: {
-        tripId: trip.id,
-        dayNumber: trip.days.length + 1,
-        date,
-        title: req.body.title?.trim() || `Day ${trip.days.length + 1}`,
-        position: trip.days.length,
-      },
-    });
+    const [day] = await prisma.$transaction([
+      prisma.itineraryDay.create({
+        data: {
+          tripId: trip.id,
+          dayNumber: trip.days.length + 1,
+          date,
+          title: req.body.title?.trim() || `Day ${trip.days.length + 1}`,
+          position: trip.days.length,
+        },
+      }),
+      prisma.trip.update({
+        where: { id: trip.id },
+        data: { endDate: date },
+      }),
+    ]);
     res.status(201).json(day);
   } catch (e) {
     next(e);
@@ -208,7 +214,22 @@ router.delete("/days/:dayId", async (req, res, next) => {
   try {
     const day = await dayOwned(req.params.dayId, req.user.id);
     if (!day) return res.status(404).json({ error: "Day not found." });
-    await prisma.itineraryDay.delete({ where: { id: day.id } });
+    const trip = await tripOwned(day.tripId, req.user.id);
+    if (!trip || trip.days.length <= 1) {
+      return res.status(400).json({ error: "A trip must have at least one day." });
+    }
+    const lastDay = trip.days.at(-1);
+    if (lastDay.id !== day.id) {
+      return res.status(400).json({ error: "Only the last day of the trip can be removed." });
+    }
+    const newLastDay = trip.days.at(-2);
+    await prisma.$transaction([
+      prisma.itineraryDay.delete({ where: { id: day.id } }),
+      prisma.trip.update({
+        where: { id: trip.id },
+        data: { endDate: newLastDay.date },
+      }),
+    ]);
     res.status(204).end();
   } catch (e) {
     next(e);

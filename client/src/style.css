@@ -1314,6 +1314,11 @@ aside nav button.active {
   padding: 7px 28px 7px 9px;
   font-size: 10px;
 }
+.day-management-controls {
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+}
 .itinerary-grid {
   display: grid;
   grid-template-columns: 1.8fr 0.8fr;
@@ -3143,6 +3148,15 @@ aside nav a.active {
   .itinerary-controls select {
     width: 100%;
     min-width: 0;
+  }
+  .day-management-controls {
+    grid-column: 1 / -1;
+    display: flex;
+    gap: 8px;
+    margin-top: 4px;
+  }
+  .day-management-controls button {
+    flex: 1;
   }
   .activity-actions button,
   .activity-actions select {
