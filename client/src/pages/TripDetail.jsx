@@ -21,6 +21,7 @@ import ItineraryPosterButton from "../components/ItineraryPosterButton";
 import TravelToolkit from "../components/TravelToolkit";
 import SectionBoundary from "../components/SectionBoundary";
 import TripExportMenu from "../components/TripExportMenu";
+import TripGenerationScreen from "../components/TripGenerationScreen";
 import { useAuth } from "../context/AuthContext";
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: markerIcon2x,
@@ -171,6 +172,7 @@ export default function TripDetail() {
     [editingId, setEditingId] = useState(null),
     [form, setForm] = useState(blank),
     [busy, setBusy] = useState(false),
+    [regenerating, setRegenerating] = useState(false),
     [shareMessage, setShareMessage] = useState(""),
     [activeActivity, setActiveActivity] = useState(null),
     [fitVersion, setFitVersion] = useState(0),
@@ -544,6 +546,7 @@ export default function TripDetail() {
   async function regenerate() {
     if (!confirm("Replace the current itinerary with a new AI plan?")) return;
     setBusy(true);
+    setRegenerating(true);
     setError("");
     try {
       setTrip(
@@ -556,6 +559,7 @@ export default function TripDetail() {
     } catch (e) {
       setError(e.message);
     } finally {
+      setRegenerating(false);
       setBusy(false);
     }
   }
@@ -678,6 +682,13 @@ export default function TripDetail() {
   );
   return (
     <>
+      {regenerating && (
+        <TripGenerationScreen
+          stage="generating"
+          tripName={trip.name}
+          destination={trip.destination?.name || trip.customLocation}
+        />
+      )}
       <header>
         <div>
           <small>MY TRIPS / {trip.destination?.name}</small>
