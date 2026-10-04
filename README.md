@@ -4,6 +4,12 @@
 
 SmartTrip Planner PH helps travelers organize Philippine destinations, trip dates, itineraries and estimated budgets. Its React interface follows the proposal design system, with teal branding, orange actions, Nunito typography, rounded cards and light/dark themes.
 
+## Live demo
+
+[Open SmartTrip Planner PH](https://smarttrip-planner-ph.vercel.app/)
+
+This deployment is for demonstration; verification status and known limitations are listed below.
+
 ## Current milestone
 
 Week 3 hardening is deployed on Vercel for demonstration. Trip creation and AI itinerary generation/regeneration have been exercised in the deployed browser, but this is not a fully verified production release. Week 2 work was recorded September 24–26, 2026.
