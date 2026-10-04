@@ -6,7 +6,7 @@ SmartTrip Planner PH helps travelers organize Philippine destinations, trip date
 
 ## Current milestone
 
-Week 3 hardening is deployed on Vercel for demonstration. The main trip-creation and AI itinerary generation/regeneration flows have been exercised by the user, but this is not a fully verified production release. Week 2 work was recorded September 24–26, 2026.
+Week 3 hardening is deployed on Vercel for demonstration. Trip creation and AI itinerary generation/regeneration have been exercised in the deployed browser, but this is not a fully verified production release. Week 2 work was recorded September 24–26, 2026.
 
 - Public landing, sign-in, registration and recovery interfaces.
 - Dashboard, trips, trip creation/editing, destinations, analytics, profile and settings interfaces.
@@ -15,8 +15,8 @@ Week 3 hardening is deployed on Vercel for demonstration. The main trip-creation
 - Twenty curated destinations, with selected locally stored landmark photos and unavailable-photo fallbacks.
 - Cubao, Quezon City is the default trip starting point; travelers can replace it with a local or international location in Profile.
 - Supabase authentication integration and API profile creation.
-- Interactive trip maps are enabled for Week 2 verification, with itinerary pins, day filters, map/list views, GeoJSON export and Google Maps directions when coordinates are available.
-- Atlas is not exposed in the interface. The user confirmed AI itinerary generation and regeneration in the deployed app; other assistant/provider behavior is not claimed as verified.
+- Interactive trip maps support itinerary pins, day filters, map/list views, GeoJSON export and Google Maps directions when coordinates are available.
+- Atlas is not exposed in the interface. Deployed-browser checks confirmed AI itinerary generation and regeneration; other assistant/provider behavior is not claimed as verified.
 
 Implemented screens and API handlers are not equivalent to fully verified user flows.
 
@@ -239,19 +239,19 @@ These privacy-safe screenshots show the running application. The Week 2 image is
 ## Known limitations and next steps
 
 - Full registration, email confirmation, recovery and session-flow verification remains pending.
-- The user confirmed trip creation and AI itinerary generation/regeneration in the deployed browser. Add/remove-day persistence and end-date consistency, trip editing, and cross-account ownership checks still need a final live verification. Analytics, sharing and exports also need end-to-end checks.
+- Deployed-browser checks confirmed trip creation and AI itinerary generation/regeneration. Add/remove-day persistence and end-date consistency, trip editing, and cross-account ownership checks still need final live verification. Analytics, sharing and exports also need end-to-end checks.
 - Map tiles need network access; pin accuracy depends on itinerary coordinates, and directions open in Google Maps.
 - Atlas is hidden; assistant chat and provider-fallback behavior are not verified.
 - External destination-photo lookup can fail; fallbacks are provided.
 - The October 4 dependency audit reported zero vulnerabilities; recheck before release because advisories can change.
 - The client is deployed at [smarttrip-planner-ph.vercel.app](https://smarttrip-planner-ph.vercel.app/) and the API at [smarttrip-planner-ph-api.vercel.app](https://smarttrip-planner-ph-api.vercel.app/). The API health endpoint previously returned `{"status":"ok","service":"smarttrip-api"}`; health alone does not verify database connectivity, authorization, or every live workflow. See [Deployment and live verification](docs/DEPLOYMENT.md).
-- Additional screenshots of authenticated workflows will be added after their end-to-end verification.
+- The included screenshots show the landing page and dashboard; they do not document authenticated workflows.
 
 See [Deployment and live verification](docs/DEPLOYMENT.md) for deployed URLs, environment guidance, and remaining live checks. The local build commands above do not deploy the application.
 
 ## AI credit
 
-Developed with substantial assistance from OpenAI Codex and Google Antigravity for code, design, troubleshooting, tests and documentation. See [AI-USAGE.md](AI-USAGE.md) for the working evidence log, corrections and backend authorship contributions. Its October 3 percentage is a historical rough estimate, not a current verified count; the 20% threshold has not yet been established.
+Built with substantial AI assistance from OpenAI Codex and Google Antigravity across code, design, debugging, tests and documentation. Our October 3 scoped backend calculation was 21.3% (644 / 3,028 nonblank, non-comment JavaScript lines under `server/src`); it is not a verified percentage of the whole repository. See [AI-USAGE.md](AI-USAGE.md) for the commit-linked usage log, examples of AI errors, and explanations of my claimed contributions.
 
 Weekly reports, documentation submissions and personal reflections belong in the private class workspace; this public repository contains the application and required public documentation.
 
